@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EsKrow+ Stage Demo</title>
+<style>
+  :root {
+    --bg: #e9efeb; --panel: #ffffff; --ink: #14201a; --muted: #5b6b62; --line: #dbe3de; --soft: #f4f7f5;
+    --brand: #0f8a3c; --brand-dark: #0b6b2e; --brand-soft: #e2f3e8;
+    --bad: #d42c2c; --bad-soft: #fdeaea; --warn: #b86200; --warn-soft: #fff1dc;
+    --hold: #1f5fbf; --hold-soft: #e6eefb; --frame: #121815; --stagebg: #0b100d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--stagebg); }
+  body { font-family: "Segoe UI", "Leelawadee UI", system-ui, sans-serif; color: var(--ink); cursor: default; }
+  #stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; overflow: hidden;
+           transform: translate(-50%, -50%) scale(var(--s, 1)); background: var(--bg);
+           display: grid; grid-template-columns: 640px 1fr; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+
+  /* ---------- animation (only when stepping forward) ---------- */
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { 0% { opacity: 0; transform: scale(.92); } 60% { opacity: 1; transform: scale(1.02); } 100% { transform: none; } }
+  @keyframes gone { to { opacity: 0; visibility: hidden; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(15,138,60,.55); } 100% { box-shadow: 0 0 0 18px rgba(15,138,60,0); } }
+  @keyframes flash { 0%, 100% { background: transparent; } 30% { background: #fff6c7; } }
+  @keyframes ripple { from { opacity: .6; transform: translate(-50%,-50%) scale(.2); } to { opacity: 0; transform: translate(-50%,-50%) scale(1); } }
+  .anim .in { animation: rise .5s both; animation-delay: var(--d, 0s); }
+  .anim .popin { animation: pop .55s both; animation-delay: var(--d, 0s); }
+  .anim .flash { animation: flash 1.4s ease-out; animation-delay: var(--d, 0s); }
+  .checking { display: none; }
+  .anim .checking { display: flex; animation: gone .3s forwards; animation-delay: var(--d, 2.4s); }
+
+  /* ---------- left: phone ---------- */
+  .left { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  .phone { width: 400px; height: 850px; border: 12px solid var(--frame); border-radius: 58px; background: var(--panel);
+           overflow: hidden; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,.18); }
+  .sbar { height: 42px; display: flex; justify-content: space-between; align-items: center; padding: 4px 28px 0;
+          font-size: 15px; font-weight: 700; position: relative; z-index: 3; }
+  .notch { position: absolute; top: 8px; left: 50%; width: 110px; height: 26px; border-radius: 20px; background: var(--frame); transform: translateX(-50%); }
+  .screen { position: absolute; inset: 42px 0 0 0; display: flex; flex-direction: column; }
+  .phone-cap { font-size: 18px; color: var(--muted); font-weight: 600; }
+  .apphead { background: var(--brand); color: #fff; padding: 14px 20px 16px; }
+  .apphead b { font-size: 20px; display: block; }
+  .apphead small { opacity: .85; font-size: 13px; }
+  .pbody { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; position: relative; }
+  .pcard { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: var(--panel); }
+  .pbtn { display: block; width: 100%; font: inherit; font-size: 17px; font-weight: 700; border-radius: 14px; padding: 14px;
+          border: 2px solid var(--brand); background: var(--brand); color: #fff; cursor: pointer; text-align: center; }
+  .pbtn.ghost { background: var(--panel); color: var(--ink); border-color: var(--line); }
+  .pbtn.redline { background: var(--panel); color: var(--bad); border-color: var(--bad); }
+  .tap { animation: pulse 1.4s infinite; }
+  .anim .tap { animation: rise .5s both, pulse 1.4s infinite; animation-delay: var(--d, 0s), calc(var(--d, 0s) + .5s); }
+  .field { font-size: 13px; color: var(--muted); }
+  .field b { display: block; color: var(--ink); font-size: 17px; font-weight: 600; margin-top: 1px; }
+  .fields { display: grid; gap: 10px; }
+  .spacer { flex: 1; }
+  .center { text-align: center; }
+
+  /* social feed */
+  .feedhead { padding: 10px 18px; font-size: 22px; font-weight: 800; letter-spacing: -.02em; border-bottom: 1px solid var(--line); }
+  .post-top { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg,#f58529,#dd2a7b,#8134af); color: #fff;
+            display: grid; place-items: center; font-weight: 800; font-size: 15px; }
+  .post-img { height: 330px; background: linear-gradient(160deg,#20262b,#3a4450 60%,#59636e); display: grid; place-items: center; position: relative; color: #fff; }
+  .post-img .ph { width: 120px; height: 230px; border-radius: 26px; background: linear-gradient(160deg,#2b2b2b,#0f0f0f); border: 3px solid #555; box-shadow: 0 20px 40px rgba(0,0,0,.4); }
+  .price-tag { position: absolute; right: 18px; bottom: 18px; background: #ffde3b; color: #111; font-weight: 900; font-size: 30px;
+               padding: 6px 14px; border-radius: 12px; transform: rotate(-4deg); }
+  .hot { position: absolute; left: 16px; top: 16px; background: var(--bad); padding: 3px 10px; border-radius: 8px; font-weight: 800; font-size: 14px; }
+  .caption { padding: 10px 16px 0; font-size: 15px; line-height: 1.45; }
+  .caption small { display: block; color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .comment { padding: 6px 16px; font-size: 14px; color: var(--muted); }
+
+  /* risk + verdicts on phone */
+  .alert { border-radius: 16px; padding: 16px; }
+  .alert h3 { margin: 0 0 6px; font-size: 21px; }
+  .alert p { margin: 0; font-size: 15px; line-height: 1.45; }
+  .a-bad { background: var(--bad-soft); color: var(--bad); }
+  .a-ok { background: var(--brand-soft); color: var(--brand-dark); }
+  .a-hold { background: var(--hold-soft); color: var(--hold); }
+  .a-warn { background: var(--warn-soft); color: var(--warn); }
+  .alert ul { margin: 8px 0 0; padding-left: 20px; font-size: 15px; color: var(--ink); }
+  .alert li { margin: 3px 0; }
+  .score { font-size: 48px; font-weight: 900; line-height: 1; }
+  .checking { position: absolute; inset: 0; background: var(--panel); z-index: 2; flex-direction: column; align-items: center; justify-content: center; gap: 18px; font-size: 18px; color: var(--muted); }
+  .spinner { width: 54px; height: 54px; border-radius: 50%; border: 6px solid var(--brand-soft); border-top-color: var(--brand); animation: spin .9s linear infinite; }
+
+  /* timeline */
+  .tl { list-style: none; margin: 0; padding: 0; }
+  .tl li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 7px 0; font-size: 15px; position: relative; }
+  .tl li::before { content: ""; position: absolute; left: 14px; top: 34px; bottom: -8px; width: 2px; background: var(--line); }
+  .tl li:last-child::before { display: none; }
+  .tl .dot { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 14px;
+             background: var(--soft); color: var(--muted); border: 2px solid var(--line); position: relative; z-index: 1; }
+  .tl .done .dot { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .tl .fail .dot { background: var(--bad); color: #fff; border-color: var(--bad); }
+  .tl .hold .dot { background: var(--hold); color: #fff; border-color: var(--hold); }
+  .tl b { display: block; font-size: 16px; }
+  .tl small { color: var(--muted); font-size: 13px; }
+  .tl .fail small { color: var(--bad); }
+  .big-money { font-size: 46px; font-weight: 900; letter-spacing: -.02em; }
+  .notif { background: rgba(20,32,26,.92); color: #fff; border-radius: 18px; padding: 12px 14px; font-size: 14px; display: flex; gap: 10px; align-items: center; }
+  .notif .ic { width: 34px; height: 34px; border-radius: 9px; background: var(--brand); display: grid; place-items: center; font-weight: 900; flex: none; }
+  .notif b { display: block; font-size: 15px; }
+
+  /* chat */
+  .chat { background: var(--soft); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .bubble { background: var(--panel); border: 1px solid var(--line); border-radius: 16px 16px 16px 4px; padding: 10px; max-width: 80%; font-size: 15px; }
+  .bubble img { display: block; width: 150px; height: 150px; margin-top: 8px; image-rendering: pixelated; }
+  .who { font-size: 12px; color: var(--muted); }
+
+  /* ---------- right ---------- */
+  .right { padding: 34px 44px 30px 0; display: grid; grid-template-rows: 92px 1fr; gap: 18px; min-height: 0; }
+  .top { display: flex; align-items: center; gap: 24px; }
+  .beatno { width: 64px; height: 64px; border-radius: 18px; background: var(--brand); color: #fff; font-size: 34px; font-weight: 900; display: grid; place-items: center; flex: none; }
+  .beat-title { font-size: 40px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+  .beat-sub { font-size: 18px; color: var(--muted); margin-top: 4px; }
+  .top .grow { flex: 1; min-width: 0; }
+  .meta { text-align: right; font-size: 17px; color: var(--muted); }
+  .meta b { color: var(--ink); font-size: 22px; display: block; }
+  .dots { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
+  .dots i { width: 26px; height: 7px; border-radius: 4px; background: var(--line); }
+  .dots i.on { background: var(--brand); }
+  .main { display: grid; grid-template-columns: 1fr 460px; gap: 26px; min-height: 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 22px; padding: 26px 30px; box-shadow: 0 2px 10px rgba(0,0,0,.04); min-height: 0; }
+  .focus { display: flex; flex-direction: column; gap: 18px; overflow: hidden; }
+  .focus h2 { margin: 0; font-size: 30px; letter-spacing: -.01em; }
+  .focus h2 small { display: block; font-size: 17px; color: var(--muted); font-weight: 500; margin-top: 4px; letter-spacing: 0; }
+  .focus p { margin: 0; font-size: 20px; line-height: 1.5; }
+  .foot { margin-top: auto; font-size: 17px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; line-height: 1.5; }
+  .side { display: grid; grid-template-rows: auto 1fr; gap: 20px; min-height: 0; }
+  .side h3 { margin: 0 0 10px; font-size: 18px; display: flex; justify-content: space-between; align-items: baseline; }
+  .side h3 small { font-weight: 500; color: var(--muted); font-size: 13px; }
+  .card.side-card { padding: 20px 22px; }
+
+  /* checks list (risk, tracking, policy, qr) */
+  .checks { display: grid; gap: 10px; }
+  .chk { display: grid; grid-template-columns: 40px 1fr auto; gap: 14px; align-items: center; padding: 12px 16px; border-radius: 14px; background: var(--soft); font-size: 20px; }
+  .chk .s { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; font-size: 20px; }
+  .chk.ok .s { background: var(--brand-soft); color: var(--brand); }
+  .chk.bad .s { background: var(--bad-soft); color: var(--bad); }
+  .chk.warn .s { background: var(--warn-soft); color: var(--warn); }
+  .chk small { display: block; font-size: 15px; color: var(--muted); }
+  .chk.bad small { color: var(--bad); }
+  .chk .pts { font-weight: 800; color: var(--bad); font-size: 20px; }
+  .verdict { border-radius: 18px; padding: 16px 22px; font-size: 26px; font-weight: 800; display: flex; flex-direction: column; gap: 2px; }
+  .verdict.row { flex-direction: row; align-items: center; gap: 18px; }
+  .verdict.row > span:first-child { flex: none; white-space: nowrap; }
+  .verdict small { display: block; font-size: 17px; font-weight: 500; margin-top: 2px; }
+  .v-bad { background: var(--bad); color: #fff; }
+  .v-ok { background: var(--brand); color: #fff; }
+  .v-hold { background: var(--hold); color: #fff; }
+  .meter { height: 18px; border-radius: 9px; background: linear-gradient(90deg,#3cb371 0%,#e8b730 45%,#e2572b 70%,#c81e1e 100%); position: relative; }
+  .meter i { position: absolute; top: -8px; width: 6px; height: 34px; background: var(--ink); border-radius: 3px; left: var(--x); transform: translateX(-50%); transition: left 2s ease-out; }
+
+  /* stats */
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .stat { background: var(--soft); border-radius: 20px; padding: 26px; }
+  .stat b { display: block; font-size: 72px; font-weight: 900; letter-spacing: -.03em; color: var(--bad); line-height: 1; }
+  .stat span { display: block; font-size: 21px; margin-top: 10px; line-height: 1.4; }
+
+  /* key-value table */
+  .kvt { display: grid; grid-template-columns: 220px 1fr; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .kvt div { padding: 12px 18px; font-size: 19px; border-top: 1px solid var(--line); }
+  .kvt div:nth-child(-n+2) { border-top: 0; }
+  .kvt div:nth-child(odd) { background: var(--soft); color: var(--muted); font-weight: 600; }
+  .law { display: inline-block; font-size: 14px; font-weight: 700; background: var(--brand-soft); color: var(--brand-dark); border-radius: 8px; padding: 1px 8px; margin-left: 6px; vertical-align: 2px; }
+
+  /* money flow */
+  .flow { display: grid; grid-template-columns: 1fr 70px 1.3fr 70px 1fr; align-items: center; text-align: center; }
+  .node { border-radius: 20px; padding: 22px 12px; background: var(--soft); font-size: 19px; }
+  .node b { display: block; font-size: 30px; margin-top: 4px; }
+  .node.vault { background: var(--hold-soft); color: var(--hold); border: 3px solid var(--hold); }
+  .node.locked { opacity: .55; }
+  .arrow { font-size: 40px; color: var(--muted); font-weight: 900; }
+  .arrow.x { color: var(--bad); }
+  .bul { margin: 0; padding-left: 26px; font-size: 20px; line-height: 1.5; }
+  .bul li { margin: 6px 0; }
+
+  /* admin */
+  .req { display: flex; gap: 16px; align-items: center; background: #1b2420; color: #e6ece8; border-radius: 16px; padding: 14px 18px; font-size: 18px; }
+  .req .who2 { width: 48px; height: 48px; border-radius: 12px; background: #4a2020; color: #ff8a8a; display: grid; place-items: center; font-weight: 900; flex: none; }
+  .req small { display: block; color: #9aa8a0; font-size: 15px; }
+  .grp { font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 4px 0 -4px; }
+  .chk.sm { font-size: 18px; padding: 9px 14px; grid-template-columns: 34px 1fr; }
+  .chk.sm .s { width: 34px; height: 34px; font-size: 17px; }
+
+  /* insider + walls */
+  .bribe { background: var(--soft); border-radius: 16px 16px 16px 4px; padding: 12px 18px; font-size: 21px; font-style: italic; max-width: 80%; }
+  .bribe .who { display: block; font-style: normal; font-size: 14px; margin-bottom: 2px; }
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .cmp > div { border-radius: 18px; padding: 16px 20px; font-size: 18px; line-height: 1.45; }
+  .cmp b { display: block; font-size: 20px; margin-bottom: 4px; }
+  .cmp ul { margin: 4px 0 10px; padding-left: 22px; } .cmp li { margin: 3px 0; }
+  .cmp .res { font-weight: 800; }
+  .side-old { background: var(--bad-soft); } .side-old .res { color: var(--bad); }
+  .side-new { background: var(--brand-soft); } .side-new .res, .side-new b { color: var(--brand-dark); }
+  .walls { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .wall { background: var(--soft); border-radius: 18px; padding: 14px 16px; border-top: 5px solid var(--bad); }
+  .wh { display: flex; align-items: center; gap: 10px; }
+  .wh b { font-size: 21px; flex: 1; }
+  .wn { width: 30px; height: 30px; border-radius: 9px; background: var(--ink); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 16px; }
+  .wx { width: 32px; height: 32px; border-radius: 50%; background: var(--bad); color: #fff; display: grid; place-items: center; font-weight: 900; }
+  .wexp { font-size: 15.5px; color: var(--muted); margin: 6px 0 8px; line-height: 1.4; }
+  .wrow { display: grid; grid-template-columns: 22px 1fr; gap: 6px; font-size: 16px; padding: 3px 0; line-height: 1.35; }
+  .wrow span { font-weight: 900; } .wrow.ok span { color: var(--brand); } .wrow.bad span { color: var(--bad); }
+  .rulebox { background: var(--hold-soft); color: var(--hold); border-left: 6px solid var(--hold); border-radius: 14px; padding: 14px 18px; font-size: 18px; line-height: 1.45; }
+  .rulebox b { display: block; font-size: 22px; margin-bottom: 2px; }
+  .chain { display: grid; grid-template-columns: 1fr 40px 1.15fr 40px 1fr; align-items: center; }
+  .blk { background: var(--soft); border: 2px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .blk.bad { background: var(--bad-soft); border-color: var(--bad); }
+  .bn { font-size: 14px; color: var(--muted); font-weight: 700; } .blk.bad .bn { color: var(--bad); }
+  .ba { font: 700 15px Consolas, monospace; overflow-wrap: anywhere; }
+  .bh { font: 14px Consolas, monospace; color: var(--muted); } .blk.bad .bh b { color: var(--bad); }
+  .lnk { text-align: center; font-size: 28px; font-weight: 900; color: var(--muted); } .lnk.bad { color: var(--bad); }
+  .rtl { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .rtl li { display: grid; grid-template-columns: 80px 1fr; gap: 14px; align-items: center; background: var(--soft); border-radius: 14px; padding: 10px 16px; font-size: 19px; }
+  .rtl .tm { font-weight: 800; font-size: 18px; color: var(--bad); }
+  .rtl small { display: block; color: var(--muted); font-size: 15px; }
+  .rtl b { font-weight: 700; }
+  .sleep { position: absolute; inset: 0; z-index: 5; background: rgba(12,18,15,.9); backdrop-filter: blur(4px); color: #fff; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; font-size: 17px; }
+  .sleep span { font-size: 54px; } .sleep b { font-size: 24px; }
+  .phone.asleep .sleep { display: flex; }
+
+  /* tamper */
+  .diffrow { display: grid; grid-template-columns: 120px 1fr; gap: 8px 16px; font-size: 19px; background: var(--soft); border-radius: 16px; padding: 16px 20px; align-items: center; }
+  .diffrow .old { text-decoration: line-through; color: var(--muted); }
+  .diffrow .new { color: var(--bad); font-weight: 800; }
+  .hashes { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 18px; align-items: center; }
+  .hashes .mono { font-size: 18px; }
+
+  /* summary */
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .tile { background: var(--soft); border-radius: 18px; padding: 18px; }
+  .tile .s { width: 44px; height: 44px; border-radius: 12px; background: var(--brand); color: #fff; display: grid; place-items: center; font-weight: 900; font-size: 22px; }
+  .tile b { display: block; font-size: 21px; margin: 12px 0 4px; }
+  .tile span { font-size: 16px; color: var(--muted); }
+  .headline { font-size: 50px; font-weight: 900; letter-spacing: -.02em; line-height: 1.1; }
+  .headline em { font-style: normal; color: var(--brand); }
+
+  /* ledger */
+  .led { display: grid; gap: 8px; }
+  .led > div { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; padding: 10px 14px; border-radius: 12px; background: var(--soft); font-size: 17px; }
+  .led small { display: block; color: var(--muted); font-size: 13px; }
+  .led b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 800; border-radius: 99px; padding: 2px 9px; margin-left: 6px; vertical-align: 2px; }
+  .p-held { background: var(--hold-soft); color: var(--hold); }
+  .p-pend { background: var(--warn-soft); color: var(--warn); }
+  .p-done { background: var(--brand-soft); color: var(--brand-dark); }
+  .p-none { background: var(--line); color: var(--muted); }
+
+  /* audit */
+  .audit-card { display: flex; flex-direction: column; min-height: 0; }
+  .chainstat { font-size: 14px; font-weight: 800; border-radius: 99px; padding: 3px 12px; }
+  .cs-ok { background: var(--brand-soft); color: var(--brand-dark); }
+  .cs-bad { background: var(--bad); color: #fff; }
+  .audit { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; scroll-behavior: smooth; }
+  .ae { border-radius: 10px; padding: 7px 10px; background: var(--soft); font-size: 14px; border-left: 4px solid var(--brand); cursor: default; }
+  .ae .l1 { display: flex; gap: 8px; align-items: baseline; }
+  .ae .seq { font-weight: 800; color: var(--muted); font-family: Consolas, monospace; }
+  .ae .act { font-weight: 800; font-family: Consolas, monospace; font-size: 14px; }
+  .ae .ts { margin-left: auto; color: var(--muted); font-size: 12px; font-family: Consolas, monospace; }
+  .ae .l2 { color: var(--muted); font-size: 13px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ae .l3 { font-family: Consolas, monospace; font-size: 11.5px; color: #8a9790; margin-top: 2px; }
+  .ae.bad { border-left-color: var(--bad); background: var(--bad-soft); }
+  .ae.bad .act, .ae.bad .l3 { color: var(--bad); }
+  .ae.alert-row { border-left-color: var(--warn); }
+
+  /* overlays */
+  #hint { position: fixed; right: 14px; bottom: 8px; font: 13px "Segoe UI", sans-serif; color: rgba(20,32,26,.45); z-index: 20; pointer-events: none; }
+  #notes { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(1100px, 92vw); background: rgba(10,16,13,.94); color: #f0f4f2;
+           border-radius: 14px; padding: 14px 20px; font: 17px/1.5 "Segoe UI", sans-serif; z-index: 21; display: none; }
+  #notes b { color: #7ee2a3; }
+  #help { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; place-items: center; z-index: 22; }
+  #help div { background: #fff; border-radius: 16px; padding: 24px 30px; font: 16px/1.7 "Segoe UI", sans-serif; min-width: 420px; }
+  #help kbd { display: inline-block; min-width: 28px; text-align: center; border: 1px solid #ccd; border-bottom-width: 2px; border-radius: 6px; padding: 0 6px; font: 14px Consolas, monospace; margin-right: 8px; }
+  .rip { position: fixed; width: 90px; height: 90px; border-radius: 50%; border: 4px solid rgba(15,138,60,.85); pointer-events: none; z-index: 30; animation: ripple .55s ease-out forwards; }
+  .toast { position: absolute; left: 16px; right: 16px; bottom: 16px; background: rgba(20,32,26,.92); color: #fff; padding: 10px 14px; border-radius: 12px; font-size: 14px; text-align: center; z-index: 4; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="left">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="sbar"><span id="pclock">19:40</span><span>●●● 5G ▮</span></div>
+      <div class="screen" id="screen"></div>
+      <div class="sleep"><span>😴</span><b>Ploy is asleep</b>None of this reaches her phone</div>
+    </div>
+    <div class="phone-cap">Ploy's phone · first jobber, 24</div>
+  </div>
+  <div class="right">
+    <div class="top">
+      <div class="beatno" id="beatno">1</div>
+      <div class="grow"><div class="beat-title" id="btitle"></div><div class="beat-sub" id="bsub"></div></div>
+      <div class="meta"><b id="clock"></b><span>Concept prototype · simulated data</span><div class="dots" id="dots"></div></div>
+    </div>
+    <div class="main">
+      <div class="card focus" id="focus"></div>
+      <div class="side">
+        <div class="card side-card"><h3>Escrow ledger <small>deal EK2610130042</small></h3><div class="led" id="ledger"></div></div>
+        <div class="card side-card audit-card"><h3>Audit log <span class="chainstat cs-ok" id="chainstat">SHA-256 chain ✓</span></h3><div class="audit" id="audit"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="hint">→ next · ← back · R reset · 1–7 beat · N notes · F full screen · H help</div>
+<div id="notes"></div>
+<div id="help"><div>
+  <b style="font-size:20px">Presenter keys</b><br>
+  <kbd>→</kbd><kbd>Space</kbd>next step (or tap the pulsing button on the phone)<br>
+  <kbd>←</kbd>previous step<br>
+  <kbd>1</kbd>–<kbd>7</kbd>jump to the start of a beat<br>
+  <kbd>R</kbd>reset to the start<br>
+  <kbd>N</kbd>show or hide speaker notes<br>
+  <kbd>F</kbd>full screen<br>
+  <kbd>H</kbd>hide or show the key hint (this box: <kbd>?</kbd>)<br>
+  <span style="color:#667">Q&amp;A trick: Alt+click any audit-log entry to tamper with it live.<br>The chain check turns red immediately.</span>
+</div></div>
+
+<script src="vendor/qrcode.js"></script>
+<script>
+"use strict";
+// ================= story data =================
+const DEAL = { id: "EK2610130042", seller: "@iphone.bkk.shop", acct: "xxx-xxx-4417", item: "iPhone 15 128GB Black", amount: 18000 };
+const BUYER = { name: "Ploy S.", id: "U-PLOY-0424", balance: 42350 };
+const T = (d, h, m) => new Date(2026, 9, d, h, m).getTime();
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const thb = n => "฿" + Number(n).toLocaleString("en-US");
+const hm = t => new Date(t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const hms = t => new Date(t).toLocaleTimeString("en-GB");
+const day = t => new Date(t).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+
+// ================= hash-chained audit log (real SHA-256) =================
+const enc = new TextEncoder();
+const sha = async s => [...new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s)))].map(b => b.toString(16).padStart(2, "0")).join("");
+const GENESIS = "0".repeat(64);
+const entryText = e => [e.seq, e.ts, e.actor, e.action, e.detail, e.prev].join("|");
+async function log(s, actor, action, detail) {
+  s.clock += 7000;
+  const prev = s.audit.length ? s.audit[s.audit.length - 1].hash : GENESIS;
+  const e = { seq: s.audit.length + 1, ts: s.clock, actor, action, detail, prev };
+  e.hash = await sha(entryText(e));
+  s.audit.push(e);
+  return e;
+}
+async function verifyChain(audit) {
+  const res = [];
+  for (let i = 0; i < audit.length; i++) {
+    const e = audit[i];
+    const recomputed = await sha(entryText(e));
+    const linkOk = e.prev === (i ? audit[i - 1].hash : GENESIS);
+    res.push({ ok: recomputed === e.hash && linkOk, recomputed, linkOk });
+  }
+  return res;
+}
+
+// ================= Thai QR (ordinary PromptPay, for the fake-QR beat) =================
+const tlv = (t, v) => t + String(v.length).padStart(2, "0") + v;
+function crc16(str) {
+  let c = 0xFFFF;
+  for (const b of enc.encode(str)) { c ^= b << 8; for (let k = 0; k < 8; k++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF; }
+  return c.toString(16).toUpperCase().padStart(4, "0");
+}
+// fake, unregistered PromptPay number: a real banking app cannot pay it
+const FAKE_QR = (() => { const b = tlv("00", "01") + tlv("01", "12") + tlv("29", tlv("00", "A000000677010111") + tlv("01", "0066000000000")) + tlv("53", "764") + tlv("54", "18000.00") + tlv("58", "TH") + "6304"; return b + crc16(b); })();
+const FAKE_QR_IMG = (() => { const q = qrcode(0, "M"); q.addData(FAKE_QR); q.make(); return q.createDataURL(5, 2); })();
+
+// ================= steps =================
+const RISK = [
+  ["Account opened 9 days ago", "New accounts are a top mule signal", 20],
+  ["47 incoming transfers from 31 different people", "In the last 7 days", 22],
+  ["94% of money moved out within 10 minutes", "Pass-through pattern typical of mule accounts", 24],
+  ["3 scam reports from other buyers", "This week", 12],
+  ["Device linked to 2 accounts in the fraud registry", "Central Fraud Registry check (simulated)", 8],
+];
+const TRACK = [
+  [true, "Tracking number exists", "Flash Express API (simulated) · TH2410887351"],
+  [false, "Created after the deal", "Created 11 Oct 15:20, two days before the deal"],
+  [false, "Going to the buyer's address", "Destination Chiang Mai 50200, buyer is in Bangkok 10500"],
+  [false, "Recipient matches the buyer", "Recipient “S*** K.”, not Ploy S."],
+  [false, "Not used in other deals", "Same number submitted in 4 other EsKrow+ deals"],
+];
+const WALLS = [
+  ["Zero-Trust", "Every request is checked: who, which device, when. Being on the bank's network earns no trust.",
+    [[true, "Identity: password + hardware key"], [false, "Device: unmanaged laptop, never seen"], [false, "Time: 02:14, outside his shift"]]],
+  ["RBAC", "Role-based access: staff get only the permissions their job needs.",
+    [[false, "Operations Officers can view deals, not release money"]]],
+  ["Policy", "Rules on the deal itself, no matter who is asking.",
+    [[false, "Tracking FAILED and refund pending: release forbidden"]]],
+  ["Dual Approval", "Moving escrow money needs two other people, from Risk and Compliance.",
+    [[false, "0 of 2 approvals. You can't approve your own request"]]],
+];
+
+const STEPS = [
+  { beat: 1, title: "A deal too good to be true", sub: "Ploy finds a cheap iPhone on social media", t: T(13, 19, 40), phone: "social", focus: "hook",
+    note: "<b>Say:</b> “THB 63 billion lost to online crime in two years. This is how it usually starts: a great price, and ‘transfer first’.”",
+    apply: async s => {} },
+  { beat: 2, title: "Create a protected deal", sub: "Ploy doesn't transfer to a stranger. She opens EsKrow+ in K PLUS", t: T(13, 19, 42), phone: "deal", focus: "deal",
+    note: "<b>Say:</b> “Instead of transferring, Ploy pastes the seller's account into EsKrow+. Everything is filled in for her.” <b>Then tap</b> “Check seller”.",
+    apply: async s => { await log(s, "buyer:" + BUYER.id, "DEAL_REQUESTED", `${DEAL.id} · ${DEAL.seller} · ${thb(DEAL.amount)}`); } },
+  { beat: 3, title: "Risk check", sub: "Behavioral Risk Signal, from the bank's own transaction data", t: T(13, 19, 42), phone: "risk", focus: "risk",
+    note: "<b>Say:</b> “The bank sees what the seller can't fake: how old the account is, and how money flows through it. 86 out of 100: high risk.” <b>Point:</b> a scammer can edit a profile, not bank data.",
+    apply: async s => { await log(s, "risk-engine", "RISK_SCORED", "seller xxx-4417 · 86/100 · HIGH"); } },
+  { beat: 4, title: "Escrow contract", sub: "Ploy continues anyway. Now the money is protected by law", t: T(13, 19, 43), phone: "contract", focus: "contract",
+    note: "<b>Say:</b> “Even if she ignores the warning, she's protected. This is a real escrow contract under the Escrow Act B.E. 2551. The bank is the escrow agent.”",
+    apply: async s => { await log(s, "buyer:" + BUYER.id, "WARNING_ACKNOWLEDGED", "continued with EsKrow+ protection"); await log(s, "escrow-svc", "CONTRACT_SIGNED", "buyer + seller + bank as escrow agent"); } },
+  { beat: 4, title: "The seller sends a fake QR", sub: "A trick to skip escrow: an ordinary transfer QR", t: T(13, 19, 44), phone: "fakeqr", focus: "qr",
+    note: "<b>Say:</b> “A smart scammer sends their own QR: ‘pay here, it's faster’. K PLUS checks for the bank's digital signature. No signature, no payment.” (Live proof: poc-qr-signing)",
+    apply: async s => { await log(s, "kplus-app", "QR_REJECTED", "no bank signature · ordinary PromptPay transfer"); } },
+  { beat: 4, title: "Money held in escrow", sub: "Paid to the bank, not to the seller", t: T(13, 19, 45), phone: "held", focus: "held", flash: ["buyer", "escrow"],
+    note: "<b>Say:</b> “Ploy pays inside EsKrow+. The money sits in a segregated escrow account. By law it's safe even if the bank itself fails.”",
+    apply: async s => { s.led.buyer -= DEAL.amount; s.led.escrow += DEAL.amount; s.led.status = "held"; await log(s, "escrow-svc", "FUNDS_HELD", `${thb(DEAL.amount)} in segregated escrow account`); } },
+  { beat: 5, title: "Fake tracking", sub: "The seller claims they shipped. EsKrow+ checks with the carrier", t: T(14, 10, 12), phone: "trackfail", focus: "tracking",
+    note: "<b>Say:</b> “Next morning the seller sends a shipment ID. Before Ploy is ever asked to confirm, the bank checks it with the carrier. It's real, but it was created before the deal, it's going to Chiang Mai, and it's been used in four other deals. It never reaches Ploy.” <b>This is the main moment.</b> <b>Point:</b> only a shipment that passes these checks goes to Ploy for one-tap confirmation, and her tap is what pays the seller.",
+    apply: async s => { await log(s, "seller:" + DEAL.seller, "SHIPMENT_CLAIMED", "Flash Express TH2410887351"); await log(s, "verify-svc", "TRACKING_FAILED", "created before deal · wrong province · reused ×4"); await log(s, "policy-engine", "RELEASE_BLOCKED", "not verified · not sent to buyer"); } },
+  { beat: 5, title: "Deadline passes", sub: "The contract decides. No phone calls, no arguing", t: T(16, 19, 45), phone: "refundpending", focus: "deadline", flash: ["escrow"],
+    note: "<b>Say:</b> “72 hours, no valid shipment. The rule Ploy and the seller signed says: refund. Nobody has to make a judgement call.” <b>If asked</b> “What if the scammer says ‘I did ship’?”: “They had 72 hours to send a shipment ID the carrier confirms, and they were told on Wednesday that theirs failed. After the deadline the contract says refund. Section 23 of the Escrow Act lets the contract set that rule, so arguing alone can't freeze the money.”",
+    apply: async s => { s.led.status = "pend"; await log(s, "escrow-svc", "REFUND_SCHEDULED", "no verified shipment ID in 72 h · settles 09:00"); } },
+  { beat: 6, title: "The rogue admin", sub: "The scammer can't beat the system from outside, so they try from inside the bank", t: T(17, 1, 50), phone: "refundpending", focus: "insider", dim: true,
+    note: "<b>Say:</b> “The money is stuck, so the scammer bribes someone inside the bank: an Operations Officer with real access. Most back offices trust staff once they're logged in. EsKrow+ assumes any single account can go bad, or be stolen.”",
+    apply: async s => { await log(s, "admin:ops.admin07", "ADMIN_LOGIN", "VPN · unmanaged laptop · first seen · flagged"); } },
+  { beat: 6, title: "Force release attempt", sub: "Four independent walls. Any one of them is enough to stop it", t: T(17, 2, 14), phone: "refundpending", focus: "admin", dim: true,
+    note: "<b>Say:</b> “At 2 a.m. he clicks force release. Wall 1, Zero-Trust: wrong device, wrong time. Wall 2, RBAC: his role can't release money at all. Wall 3, Policy: this deal's tracking failed, so nobody can release it. Wall 4, Dual Approval: it needs two people from other teams. All four say no.”",
+    apply: async s => { await log(s, "admin:ops.admin07", "FORCE_RELEASE_REQUESTED", `${thb(DEAL.amount)} → seller`); await log(s, "policy-engine", "REQUEST_DENIED", "zero-trust · rbac · policy · 0/2 approvals"); await log(s, "secops", "SECURITY_ALERT", "SA-0193 · SecOps paged"); } },
+  { beat: 6, title: "Even with an accomplice", sub: "A colleague approves the request. It still doesn't work", t: T(17, 2, 15), phone: "refundpending", focus: "accomplice", dim: true,
+    note: "<b>Say:</b> “So he gets a friend to approve it. The approval doesn't count: approvers must come from Risk or Compliance, never the requester's own team. And even with two real approvals, the policy still says no while tracking has failed. Rules beat signatures.”",
+    apply: async s => { await log(s, "admin:ops.admin12", "APPROVAL_SUBMITTED", `approves force release of ${DEAL.id}`); await log(s, "policy-engine", "APPROVAL_REJECTED", "approver in same team · not Risk/Compliance"); await log(s, "policy-engine", "RELEASE_STILL_BLOCKED", "policy: tracking FAILED overrides approvals"); } },
+  { beat: 6, title: "Covering the tracks", sub: "The admin edits the audit log directly in the database", t: T(17, 2, 16), phone: "refundpending", focus: "tamper", dim: true,
+    note: "<b>Say:</b> “Last try: change the log so it says tracking was OK. Every entry is chained to the one before with SHA-256. One changed word, and the chain breaks.” These hashes are computed live in the page.",
+    apply: async s => {
+      const e = s.audit.find(x => x.action === "TRACKING_FAILED");
+      s.tamper = { seq: e.seq, before: { action: e.action, detail: e.detail }, stored: e.hash };
+      e.action = "TRACKING_OK"; e.detail = "verified · delivered";
+      s.tamper.recomputed = await sha(entryText(e));
+      s.tamper.next = s.audit[e.seq].prev;
+      await log(s, "integrity-monitor", "INTEGRITY_ALERT", `entry #${e.seq} altered · release frozen · secops paged`);
+    } },
+  { beat: 6, title: "Caught, with evidence", sub: "The insider never got near the money, and every attempt is on record", t: T(17, 2, 17), phone: "refundpending", focus: "response", dim: true,
+    note: "<b>Say:</b> “Three minutes after the first attempt, both accounts are locked and an investigation is open. The log proves what happened, and that the one edit was fake. Ploy slept through all of it.”",
+    apply: async s => { await log(s, "secops", "ACCOUNTS_LOCKED", "ops.admin07 · ops.admin12"); await log(s, "secops", "INVESTIGATION_OPENED", "case IR-2026-118 · audit chain preserved as evidence"); } },
+  { beat: 7, title: "Refunded", sub: "Scam stopped before it cost Ploy anything", t: T(17, 9, 0), phone: "refunded", focus: "summary", flash: ["buyer", "escrow"],
+    note: "<b>Say:</b> “Nine o'clock: Ploy has her ฿18,000 back. The scammer got nothing, and the insider got caught. That's EsKrow+.”",
+    apply: async s => { s.led.escrow -= DEAL.amount; s.led.buyer += DEAL.amount; s.led.status = "refunded"; await log(s, "escrow-svc", "REFUND_ISSUED", `${thb(DEAL.amount)} → ${BUYER.name} · paying account`); } },
+];
+
+// ================= phone screens =================
+const head = (title, sub) => `<div class="apphead"><b>${title}</b><small>${sub}</small></div>`;
+const EK = sub => head("EsKrow+", sub || "Transaction Protection · in K PLUS");
+const tl = items => `<ul class="tl">${items.map(([cls, sym, b, sm]) => `<li class="${cls}"><span class="dot">${sym}</span><span><b>${b}</b>${sm ? `<small>${sm}</small>` : ""}</span></li>`).join("")}</ul>`;
+const dealHeader = `<div class="pcard in"><div class="field">Deal ${DEAL.id}</div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:2px"><b style="font-size:17px">${DEAL.item}</b><b style="font-size:20px">${thb(DEAL.amount)}</b></div><div class="field">${DEAL.seller}</div></div>`;
+
+const PHONE = {
+  social: () => `
+    <div class="feedhead">feed</div>
+    <div class="post-top"><div class="avatar">iP</div><div><b>${DEAL.seller}</b><div class="field">Bangkok · 2 h</div></div></div>
+    <div class="post-img"><span class="hot">HOT 🔥</span><div class="ph"></div><span class="price-tag">${thb(DEAL.amount)}</span></div>
+    <div class="caption"><b>${DEAL.seller}</b> iPhone 15 128GB มือหนึ่ง ประกันศูนย์ไทย 🔥 เหลือ 18,000 บาทเท่านั้น! โอนก่อน ส่งไวภายในวันนี้ 🚚 ทักแชทเลย
+      <small>“Brand new, Thai warranty. Only ฿18,000! Transfer first, ships today. DM now.”</small></div>
+    <div class="comment">ploy.s · สนใจค่ะ ทักไปแล้วนะคะ</div>
+    <div class="pbody" style="justify-content:flex-end"><button class="pbtn tap" data-next style="--d:.6s">Buy safely with EsKrow+</button></div>`,
+
+  deal: () => `${EK("New protected deal")}
+    <div class="pbody">
+      <div class="pcard in fields">
+        <div class="field">Seller<b>${DEAL.seller}</b></div>
+        <div class="field">Seller account<b>PromptPay ${DEAL.acct}</b></div>
+        <div class="field">Item<b>${DEAL.item}</b></div>
+        <div class="field">Price<b>${thb(DEAL.amount)}</b></div>
+        <div class="field">Deliver to<b>Ploy S. · Bang Rak, Bangkok 10500</b></div>
+      </div>
+      <div class="alert a-hold in" style="--d:.2s"><p>🔒 Your money goes to the bank, and reaches the seller only after you confirm a verified shipment.</p></div>
+      <div class="spacer"></div>
+      <button class="pbtn tap" data-next style="--d:.4s">Check seller &amp; create deal</button>
+    </div>`,
+
+  risk: () => `${EK("Seller check")}
+    <div class="pbody">
+      <div class="checking"><div class="spinner"></div>Checking seller…</div>
+      <div class="alert a-bad popin" style="--d:2.5s">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>⚠ High-risk seller</h3><span class="score">86</span></div>
+        <p>We recommend you don't buy from this seller.</p>
+        <ul><li>Account opened 9 days ago</li><li>Money moves out within minutes</li><li>3 scam reports this week</li></ul>
+      </div>
+      <div class="alert a-hold in" style="--d:2.9s"><p>If you continue, the bank holds your money. The seller can't touch it until you confirm a verified shipment.</p></div>
+      <div class="spacer"></div>
+      <button class="pbtn redline in" data-noop style="--d:3s">Cancel deal (recommended)</button>
+      <button class="pbtn tap" data-next style="--d:3.1s">Continue with protection</button>
+    </div>`,
+
+  contract: () => `${EK("Protected deal created")}
+    <div class="pbody">
+      ${dealHeader}
+      <div class="pcard in fields" style="--d:.15s">
+        <div class="field">Release<b>When you confirm the shipment the bank verified</b></div>
+        <div class="field">If the seller doesn't ship<b>Full refund after 72 hours</b></div>
+        <div class="field">If the shipment looks wrong<b>Report it · your money stays held</b></div>
+        <div class="field">Signed<b>✓ You (K PLUS PIN) · ✓ Seller · ✓ Bank</b></div>
+      </div>
+      <div class="alert a-warn in" style="--d:.3s"><p><b>Waiting for payment.</b> Pay only through EsKrow+.</p></div>
+      <div class="spacer"></div>
+      <div class="notif in" style="--d:.8s"><span class="ic">💬</span><span><b>${DEAL.seller}</b>sent you a payment QR</span></div>
+      <button class="pbtn tap" data-next style="--d:.9s">Scan seller's QR</button>
+    </div>`,
+
+  fakeqr: () => `${EK("Scan to pay")}
+    <div class="pbody">
+      <div class="chat in"><div class="who">${DEAL.seller}</div>
+        <div class="bubble">โอนเข้าบัญชีนี้ได้เลยค่า เร็วกว่า 🙏<br><small style="color:var(--muted)">“Just transfer here, it's faster”</small><img src="${FAKE_QR_IMG}" alt="Seller's QR code"></div></div>
+      <div class="alert a-bad popin" style="--d:.9s"><h3>✗ QR blocked</h3>
+        <p>This is <b>not an EsKrow+ QR</b>. It has no bank signature. It's an ordinary transfer straight to the seller, so your money could not be protected.</p></div>
+      <div class="spacer"></div>
+      <button class="pbtn tap" data-next style="--d:1.3s">Pay ${thb(DEAL.amount)} safely in EsKrow+</button>
+    </div>`,
+
+  held: s => `${EK("Deal " + DEAL.id)}
+    <div class="pbody">
+      <div class="alert a-hold popin center" style="padding:22px"><div style="font-size:40px">🔒</div><div class="big-money">${thb(DEAL.amount)}</div><p>held by the bank in escrow</p></div>
+      <div class="pcard in" style="--d:.3s">${tl([
+        ["done", "✓", "Deal created", "13 Oct 19:43"],
+        ["hold", "✓", "Paid · held in escrow", "13 Oct 19:45"],
+        ["", "3", "Seller sends shipment ID", "Deadline 16 Oct 19:45"],
+        ["", "4", "Bank checks it with the carrier", ""],
+        ["", "5", "You confirm · paid to seller", "Automatic 48 h after a verified ID"]])}</div>
+      <div class="field center in" style="--d:.5s">Balance ${thb(s.led.buyer)}</div>
+    </div>`,
+
+  trackfail: () => `${EK("Deal " + DEAL.id)}
+    <div class="pbody">
+      <div class="notif popin"><span class="ic">!</span><span><b>EsKrow+</b>The seller's tracking failed verification</span></div>
+      <div class="pcard in" style="--d:.3s">${tl([
+        ["done", "✓", "Deal created", "13 Oct 19:43"],
+        ["hold", "✓", "Paid · held in escrow", "13 Oct 19:45"],
+        ["done", "✓", "Seller sent shipment ID", "Flash Express TH2410887351"],
+        ["fail", "✗", "Bank check failed", "Not sent to you to confirm"],
+        ["", "5", "You confirm · paid to seller", ""]])}</div>
+      <div class="alert a-hold in" style="--d:.6s"><h3>Your ${thb(DEAL.amount)} is safe</h3><p>The seller has until 16 Oct 19:45 to send a shipment ID that passes the check. Otherwise you get a full refund.</p></div>
+    </div>`,
+
+  refundpending: () => `${EK("Deal " + DEAL.id)}
+    <div class="pbody">
+      <div class="pcard in">${tl([
+        ["done", "✓", "Deal created", "13 Oct 19:43"],
+        ["hold", "✓", "Paid · held in escrow", "13 Oct 19:45"],
+        ["fail", "✗", "No verified shipment", "Deadline passed 16 Oct 19:45"],
+        ["hold", "↺", "Refund approved", "Contract rule · settles 17 Oct 09:00"]])}</div>
+      <div class="alert a-ok in" style="--d:.3s"><h3>Refund on the way</h3><p>${thb(DEAL.amount)} returns to your account at 09:00 tomorrow. You don't need to do anything.</p></div>
+    </div>`,
+
+  refunded: s => `${EK("Deal " + DEAL.id)}
+    <div class="pbody">
+      <div class="notif popin"><span class="ic">K+</span><span><b>Money in · ${thb(DEAL.amount)}</b>EsKrow+ refund, deal ${DEAL.id}</span></div>
+      <div class="alert a-ok popin center" style="--d:.3s;padding:26px"><div style="font-size:54px;line-height:1">✓</div><div class="big-money">${thb(DEAL.amount)}</div><p>refunded to your account</p></div>
+      <div class="pcard in fields" style="--d:.6s">
+        <div class="field">Balance<b>${thb(s.led.buyer)}</b></div>
+        <div class="field">Seller ${DEAL.seller}<b>Reported to the bank's fraud team</b></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="field center in" style="--d:.8s">Thanks for buying safely with EsKrow+</div>
+    </div>`,
+};
+
+// ================= focus cards =================
+const chk = (ok, title, sub, extra = "", d = 0, cls = "") => `<div class="chk ${ok === true ? "ok" : ok === false ? "bad" : "warn"} ${cls} in" style="--d:${d}s"><span class="s">${ok === true ? "✓" : ok === false ? "✗" : "!"}</span><span>${title}${sub ? `<small>${sub}</small>` : ""}</span>${extra}</div>`;
+
+const FOCUS = {
+  hook: () => `
+    <h2 class="in">Online fraud in Thailand</h2>
+    <div class="stats">
+      <div class="stat in" style="--d:.2s"><b>฿63 bn</b><span>lost to online crime<br>Mar 2022 – Jul 2024</span></div>
+      <div class="stat in" style="--d:.5s"><b>1.8 m</b><span>accounts suspended through the BOT Central Fraud Registry</span></div>
+    </div>
+    <p class="in" style="--d:.8s">On social commerce, buyers usually <b>transfer first</b> to someone they have never met, and hope the parcel arrives.</p>
+    <div class="foot in" style="--d:1s">EsKrow+ puts the bank in the middle: <b>Create deal → Risk check → Escrow → Verify tracking → Buyer confirms → Release</b></div>`,
+
+  deal: () => `
+    <h2 class="in">Deal request received<small>EsKrow+ engine</small></h2>
+    <div class="kvt in" style="--d:.15s">
+      <div>Deal ID</div><div class="mono">${DEAL.id}</div>
+      <div>Buyer</div><div>${BUYER.name} · verified by K PLUS login ✓</div>
+      <div>Seller</div><div>${DEAL.seller} · PromptPay ${DEAL.acct}</div>
+      <div>Item</div><div>${DEAL.item}</div>
+      <div>Amount</div><div><b>${thb(DEAL.amount)}</b></div>
+      <div>Delivery</div><div>Bang Rak, Bangkok 10500</div>
+    </div>
+    <div class="foot in" style="--d:.4s">Next: before any money moves, the bank checks who is really behind the seller's account.</div>`,
+
+  risk: () => `
+    <h2 class="in">Behavioral Risk Signal<small>Seller account PromptPay ${DEAL.acct}</small></h2>
+    <div class="checks">${RISK.map(([t, s, p], i) => chk(false, t, s, `<span class="pts">+${p}</span>`, .3 + i * .4)).join("")}</div>
+    <div class="in" style="--d:2.3s"><div class="meter"><i id="needle" style="--x:${anim ? 0 : 86}%"></i></div>
+      <div style="display:flex;justify-content:space-between;font-size:15px;color:var(--muted);margin-top:6px"><span>0 · low</span><span>70 · high</span><span>100</span></div></div>
+    <div class="verdict row v-bad popin" style="--d:2.4s"><span style="font-size:52px;line-height:1" id="scoreNum">${anim ? 0 : 86}</span><span>/ 100 · HIGH RISK<small>Buyer warned before paying</small></span></div>
+    <div class="foot in" style="--d:2.6s">A scammer can fake a profile, reviews and photos. They can't fake how money moves through their bank account.</div>`,
+
+  contract: () => `
+    <h2 class="in">Escrow contract<small>Escrow Act B.E. 2551 (พ.ร.บ.การดูแลผลประโยชน์ของคู่สัญญา)</small></h2>
+    <div class="kvt in" style="--d:.15s">
+      <div>Parties</div><div>${BUYER.name} (buyer) · ${DEAL.seller} (seller)</div>
+      <div>Escrow agent</div><div>The bank, licensed by the Minister of Finance <span class="law">s.9</span></div>
+      <div>Release rule</div><div>Buyer confirms a bank-verified shipment ID, or 48 h pass with no reply <span class="law">s.6(5)</span></div>
+      <div>Refund rule</div><div>No verified shipment ID within 72 hours → refund to the paying account</div>
+      <div>Buyer report</div><div>Money stays held. Carrier records decide <span class="law">s.23</span></div>
+      <div>Other disputes</div><div>Funds frozen until agreed or ruled <span class="law">s.23</span></div>
+      <div>Signatures</div><div>Electronic, all three parties <span class="law">s.6</span></div>
+    </div>
+    <div class="foot in" style="--d:.4s">The rules are agreed before any money moves, so no one has to make a judgement call later.</div>`,
+
+  qr: () => `
+    <h2 class="in">Payment QR check<small>Inside K PLUS, before any payment</small></h2>
+    <div style="display:grid;grid-template-columns:1fr 200px;gap:22px;align-items:start">
+      <div class="checks">
+        ${chk(true, "Readable Thai QR payment code", "EMVCo format", "", .3)}
+        ${chk(true, "Checksum (CRC) correct", "Only proves the code isn't damaged. Anyone can compute it", "", .6)}
+        ${chk(false, "EsKrow+ bank signature", "Missing. This QR was not issued by the bank", "", .9)}
+      </div>
+      <img class="in" style="--d:.1s;width:200px;height:200px;image-rendering:pixelated;border-radius:12px;border:1px solid var(--line)" src="${FAKE_QR_IMG}" alt="Seller's QR code">
+    </div>
+    <div class="verdict v-bad popin" style="--d:1.2s">✗ Blocked<span><small>Ordinary PromptPay transfer to the seller · would bypass escrow</small></span></div>
+    <div class="foot in" style="--d:1.4s">Every EsKrow+ QR is signed by the bank's private key (ECDSA P-256). Changing the payee or amount breaks the signature. Live proof of concept: <b>poc-qr-signing</b>.</div>`,
+
+  held: () => `
+    <h2 class="in">Money held in escrow</h2>
+    <div class="flow in" style="--d:.2s">
+      <div class="node">Ploy<b>−${thb(DEAL.amount)}</b></div><div class="arrow">→</div>
+      <div class="node vault popin" style="--d:.5s">🔒 Escrow account<b>${thb(DEAL.amount)}</b>held</div><div class="arrow x">✕</div>
+      <div class="node locked">Seller<b>฿0</b></div>
+    </div>
+    <ul class="bul in" style="--d:.8s">
+      <li>Kept separate from the bank's own money <span class="law">s.14</span></li>
+      <li>Safe even if the bank is seized or goes bankrupt <span class="law">s.25</span></li>
+      <li>Moves only by the contract's rules, directly to the entitled party <span class="law">s.20</span></li>
+    </ul>`,
+
+  tracking: () => `
+    <h2 class="in">Tracking verification<small>Seller submitted Flash Express TH2410887351</small></h2>
+    <div class="checks">${TRACK.map(([ok, t, s], i) => chk(ok, t, s, "", .3 + i * .45)).join("")}</div>
+    <div class="verdict v-bad popin" style="--d:2.7s">✗ Fake shipment claim<span><small>Never sent to Ploy to confirm · seller flagged</small></span></div>`,
+
+  deadline: () => `
+    <h2 class="in">Contract rule triggered</h2>
+    <div class="flow in" style="--d:.2s;grid-template-columns:1fr 70px 1fr">
+      <div class="node">⏱ 72 hours<b>No verified shipment ID</b></div><div class="arrow">→</div>
+      <div class="node vault">↺ Refund<b>${thb(DEAL.amount)}</b>to Ploy's paying account · 17 Oct 09:00</div>
+    </div>
+    <p class="in" style="--d:.5s">The refund comes from the rule both sides signed, not from a staff decision. The seller was told on 14 Oct that the ID failed, and could send a valid one any time before the deadline. Arguing alone can't freeze the money <span class="law">s.23</span></p>
+    <div class="foot in" style="--d:.7s">MVP scope: fake or high-risk sellers, payment with no shipment, fake shipment claims. Product quality and damaged items are out of scope.</div>`,
+
+  insider: () => `
+    <h2 class="in">The rogue admin<small>01:50 · a real employee with real access</small></h2>
+    <div class="req in" style="--d:.15s"><span class="who2">!</span><span><b>ops.admin07 · Operations Officer, 4 years at the bank</b><small>Can log in to the back office and look up any EsKrow+ deal</small></span></div>
+    <div class="bribe in" style="--d:.5s"><span class="who">Message from ${DEAL.seller}</span>“฿5,000 for you if that ฿18,000 gets released tonight.”</div>
+    <div class="cmp">
+      <div class="side-old in" style="--d:.9s"><b>Typical back office</b>
+        <ul><li>Trusted once logged in on the internal network</li><li>One admin can move money alone</li><li>Admins can edit the logs</li></ul>
+        <div class="res">✗ One bad employee = money gone</div></div>
+      <div class="side-new in" style="--d:1.3s"><b>EsKrow+ back office</b>
+        <ul><li>Every request is checked again, every time</li><li>No single person can move escrow money</li><li>Nobody can quietly edit the logs</li></ul>
+        <div class="res">✓ Built to survive a bad employee</div></div>
+    </div>
+    <div class="foot in" style="--d:1.6s">The same protections apply if a scammer <b>steals</b> an employee's password instead of bribing them. Already flagged: ops.admin07 just logged in from a laptop the bank has never seen.</div>`,
+
+  admin: () => `
+    <h2 class="in">Force release attempt<small>02:14 · ops.admin07 asks to send ${thb(DEAL.amount)} of deal ${DEAL.id} to the seller</small></h2>
+    <div class="walls">
+      ${WALLS.map(([name, what, rows], i) => `<div class="wall in" style="--d:${.3 + i * .55}s">
+        <div class="wh"><span class="wn">${i + 1}</span><b>${name}</b><span class="wx">✗</span></div>
+        <div class="wexp">${what}</div>
+        ${rows.map(([ok, t]) => `<div class="wrow ${ok ? "ok" : "bad"}"><span>${ok ? "✓" : "✗"}</span>${t}</div>`).join("")}</div>`).join("")}
+    </div>
+    <div class="verdict row v-bad popin" style="--d:2.6s"><span style="font-size:34px">✗ Denied</span><span><small>All four walls said no, and any one would have been enough · SecOps paged (alert SA-0193)</small></span></div>`,
+
+  accomplice: () => `
+    <h2 class="in">Even with an accomplice<small>02:15 · a colleague approves the request</small></h2>
+    <div class="req in" style="--d:.15s"><span class="who2">!</span><span><b>ops.admin12 · Operations Officer</b><small>“Approved ✓” force release of ${DEAL.id}</small></span></div>
+    <div class="checks">
+      ${chk(false, "Approver must be from Risk or Compliance", "ops.admin12 is in Operations, the same team as the requester", "", .5)}
+      ${chk(false, "Approver uses a bank-managed device and hardware key", "Approved from a personal phone", "", .85)}
+      ${chk(false, "Two valid approvals", "Still 0 of 2", "", 1.2)}
+    </div>
+    <div class="rulebox popin" style="--d:1.6s"><b>Rules beat signatures</b>Even with two valid approvals, the policy check still says no: money can't leave escrow while this deal's tracking has failed. No number of approvals overrides the contract.</div>
+    <div class="foot in" style="--d:1.9s">Separation of duties: the person who asks, the people who approve, and the rules are all independent of each other.</div>`,
+
+  tamper: s => {
+    const t = s.tamper, a = s.audit, prev = a[t.seq - 2], next = a[t.seq], h = x => x.slice(0, 8) + "…";
+    return `
+    <h2 class="in">Covering the tracks<small>ops.admin07 skips the app and edits the audit database directly</small></h2>
+    <div class="diffrow in" style="--d:.2s"><span class="field">Entry #${t.seq}</span><span><span class="old mono">${t.before.action}</span> → <span class="new mono">TRACKING_OK</span></span></div>
+    <p class="in" style="--d:.5s;font-size:19px">Each entry stores a SHA-256 fingerprint of <b>its own content plus the previous entry's fingerprint</b>, so the entries link like a chain.</p>
+    <div class="chain in" style="--d:.8s">
+      <div class="blk"><span class="bn">#${prev.seq}</span><span class="ba">${prev.action}</span><span class="bh">hash ${h(prev.hash)}</span></div>
+      <div class="lnk">→</div>
+      <div class="blk bad"><span class="bn">#${t.seq} · edited</span><span class="ba">TRACKING_OK</span><span class="bh">was ${h(t.stored)}<br><b>now ${h(t.recomputed)}</b></span></div>
+      <div class="lnk bad">✗</div>
+      <div class="blk"><span class="bn">#${next.seq}</span><span class="ba">${next.action}</span><span class="bh">expects ${h(next.prev)}</span></div>
+    </div>
+    <div class="verdict row v-bad popin" style="--d:1.4s"><span style="font-size:34px">✗ Tampering detected</span><span><small>Entry #${t.seq} no longer matches · release frozen</small></span></div>
+    <div class="foot in" style="--d:1.7s">Recomputing #${t.seq}'s fingerprint doesn't help: #${next.seq} still expects the old one. Hashes are computed live in this page. In production the latest fingerprint is also copied to write-once storage outside any admin's reach.</div>`;
+  },
+
+  response: () => `
+    <h2 class="in">Caught, with evidence<small>Three minutes from first attempt to lock-out</small></h2>
+    <ul class="rtl">
+      ${[["01:50", "Login from an unknown laptop", "Flagged by Zero-Trust"], ["02:14", "Force release denied", "4 of 4 walls · SecOps paged"], ["02:15", "Accomplice's approval rejected", "Wrong team · policy still blocks"],
+         ["02:16", "Log edit detected", "Hash chain broken · release frozen"], ["02:17", "Both admin accounts locked", "Investigation IR-2026-118 opened"]]
+        .map(([tm, b, sm], i) => `<li class="in" style="--d:${.2 + i * .3}s"><span class="tm mono">${tm}</span><span><b>${b}</b><small>${sm}</small></span></li>`).join("")}
+    </ul>
+    <div class="cmp">
+      <div class="side-new in" style="--d:1.8s"><b>Ploy's money</b>Never moved. The refund still settles at 09:00.</div>
+      <div class="side-new in" style="--d:2s"><b>The evidence</b>Every attempt is in the log, and the chain proves the one edit was fake.</div>
+    </div>`,
+
+  summary: () => `
+    <div class="headline in">Ploy lost <em>฿0</em>.<br>The scammer got <em>฿0</em>.</div>
+    <div class="tiles">
+      ${[["Warned before paying", "Behavioral Risk Signal"], ["Fake QR blocked", "Bank-signed QR codes"], ["Fake shipment caught", "Tracking verification"],
+         ["Insider stopped", "Zero-Trust · RBAC · Policy · Dual Approval"], ["Cover-up exposed", "Tamper-evident audit log"], ["Refund by contract", "Escrow Act B.E. 2551"]]
+        .map(([b, s2], i) => `<div class="tile in" style="--d:${.3 + i * .15}s"><span class="s">✓</span><b>${b}</b><span>${s2}</span></div>`).join("")}
+    </div>
+    <div class="foot in" style="--d:1.3s">EsKrow+ · Transaction Protection for K PLUS · Cyber Security &amp; Digital Trust</div>`,
+};
+
+// ================= ledger + audit rendering =================
+function ledgerHTML(s, flash) {
+  const st = { none: ["No funds", "p-none"], held: ["HELD", "p-held"], pend: ["REFUND PENDING", "p-pend"], refunded: ["REFUNDED", "p-done"] }[s.led.status];
+  const f = k => flash.includes(k) ? "flash" : "";
+  return `
+    <div class="${f("buyer")}" style="--d:.4s"><span>Ploy's account<small>K PLUS savings</small></span><b>${thb(s.led.buyer)}</b></div>
+    <div class="${f("escrow")}" style="--d:.4s"><span>Escrow account <span class="pill ${st[1]}">${st[0]}</span><small>Segregated · bank as escrow agent</small></span><b>${thb(s.led.escrow)}</b></div>
+    <div><span>Seller ${DEAL.seller}<small>Received</small></span><b>฿0</b></div>`;
+}
+function auditHTML(s, check, fresh) {
+  return s.audit.map((e, i) => {
+    const bad = check[i] && !check[i].ok;
+    const cls = [bad ? "bad" : "", /ALERT|DENIED|REJECTED|BLOCKED|FAILED/.test(e.action) && !bad ? "alert-row" : "", i >= fresh ? "in" : ""].join(" ");
+    return `<div class="ae ${cls}" data-seq="${e.seq}" style="--d:${(i - fresh) * .25 + .2}s">
+      <div class="l1"><span class="seq">#${String(e.seq).padStart(2, "0")}</span><span class="act">${esc(e.action)}</span><span class="ts">${day(e.ts)} ${hms(e.ts)}</span></div>
+      <div class="l2">${esc(e.actor)} · ${esc(e.detail)}</div>
+      <div class="l3">${bad ? "✗ hash mismatch" : "hash"} ${e.hash.slice(0, 10)} ← prev ${e.prev.slice(0, 10)}</div></div>`;
+  }).join("");
+}
+
+// ================= engine =================
+let cur = -1, anim = false, S = null, queue = Promise.resolve(), renderToken = 0;
+const fresh = () => ({ clock: 0, led: { buyer: BUYER.balance, escrow: 0, status: "none" }, audit: [], tamper: null });
+
+async function build(n) {
+  const s = fresh();
+  for (let i = 0; i <= n; i++) { s.clock = Math.max(s.clock, STEPS[i].t); await STEPS[i].apply(s); }
+  return s;
+}
+function go(n) { queue = queue.then(() => goNow(n)).catch(e => console.error(e)); }
+async function goNow(n) {
+  n = Math.max(0, Math.min(STEPS.length - 1, n));
+  const forward = n === cur + 1;
+  const prevCount = forward && S ? S.audit.length : Infinity;
+  S = await build(n);
+  cur = n; anim = forward;
+  await render(forward ? prevCount : S.audit.length);
+}
+async function render(prevCount) {
+  const st = STEPS[cur], token = ++renderToken;
+  const stage = $("stage");
+  stage.classList.remove("anim"); void stage.offsetWidth;
+  if (anim) stage.classList.add("anim");
+  $("beatno").textContent = st.beat;
+  $("btitle").textContent = st.title;
+  $("bsub").textContent = st.sub;
+  $("clock").textContent = day(st.t) + " · " + hm(st.t);
+  $("pclock").textContent = hm(st.t);
+  $("dots").innerHTML = [1, 2, 3, 4, 5, 6, 7].map(b => `<i class="${b <= st.beat ? "on" : ""}"></i>`).join("");
+  $("screen").innerHTML = PHONE[st.phone](S);
+  document.querySelector(".phone").classList.toggle("asleep", !!st.dim);
+  $("focus").innerHTML = FOCUS[st.focus](S);
+  $("ledger").innerHTML = ledgerHTML(S, anim ? (st.flash || []) : []);
+  await renderAudit(prevCount);
+  $("notes").innerHTML = `<b>${st.beat}. ${esc(st.title)}</b> (step ${cur + 1}/${STEPS.length}) · ${st.note}`;
+  if (st.focus === "risk" && anim) countUp(token);
+}
+async function renderAudit(prevCount) {
+  const check = await verifyChain(S.audit);
+  const broken = check.some(c => !c.ok);
+  $("audit").innerHTML = auditHTML(S, check, Math.min(prevCount, S.audit.length));
+  const cs = $("chainstat");
+  cs.className = "chainstat " + (broken ? "cs-bad" : "cs-ok");
+  cs.textContent = broken ? "✗ CHAIN BROKEN" : "SHA-256 chain ✓";
+  const a = $("audit"); a.style.scrollBehavior = "auto"; a.scrollTop = a.scrollHeight;
+}
+function countUp(token) {
+  const start = performance.now() + 2400, dur = 1600;
+  const needle = $("needle"), num = $("scoreNum");
+  setTimeout(() => { if (token === renderToken && needle) needle.style.setProperty("--x", "86%"); }, 2400);
+  const f = now => {
+    if (token !== renderToken || !num) return;
+    const k = Math.min(1, Math.max(0, (now - start) / dur));
+    num.textContent = Math.round(86 * (1 - Math.pow(1 - k, 3)));
+    if (k < 1) requestAnimationFrame(f);
+  };
+  requestAnimationFrame(f);
+}
+
+// ================= input =================
+const BEAT_START = n => STEPS.findIndex(s => s.beat === n);
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  if (k === "ArrowRight" || k === " " || k === "PageDown" || k === "Enter") { e.preventDefault(); go(cur + 1); }
+  else if (k === "ArrowLeft" || k === "PageUp" || k === "Backspace") { e.preventDefault(); go(cur - 1); }
+  else if (/^[1-7]$/.test(k)) { cur = -2; go(BEAT_START(+k)); }
+  else if (k === "r" || k === "R" || k === "Home") { cur = -2; go(0); }
+  else if (k === "End") { cur = -2; go(STEPS.length - 1); }
+  else if (k === "n" || k === "N") { const n = $("notes"); n.style.display = n.style.display === "block" ? "none" : "block"; }
+  else if (k === "h" || k === "H") { const h = $("hint"); h.style.display = h.style.display === "none" ? "" : "none"; }
+  else if (k === "?") { const h = $("help"); h.style.display = h.style.display === "grid" ? "none" : "grid"; }
+  else if (k === "Escape") { $("help").style.display = "none"; }
+  else if (k === "f" || k === "F") { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); }
+});
+$("help").onclick = () => { $("help").style.display = "none"; };
+document.addEventListener("pointerdown", e => {
+  const r = document.createElement("div"); r.className = "rip"; r.style.left = e.clientX + "px"; r.style.top = e.clientY + "px";
+  document.body.appendChild(r); setTimeout(() => r.remove(), 600);
+});
+$("screen").addEventListener("click", e => {
+  if (e.target.closest("[data-next]")) go(cur + 1);
+  else if (e.target.closest("[data-noop]")) {
+    const t = document.createElement("div"); t.className = "toast"; t.textContent = "For the demo, Ploy continues anyway";
+    $("screen").appendChild(t); setTimeout(() => t.remove(), 1600);
+  }
+});
+// Q&A: Alt+click an audit entry to tamper with it live (until the next step change)
+$("audit").addEventListener("click", async e => {
+  if (!e.altKey) return;
+  const row = e.target.closest(".ae"); if (!row) return;
+  const entry = S.audit[+row.dataset.seq - 1];
+  entry.detail = entry.detail.endsWith(" (edited)") ? entry.detail.slice(0, -9) : entry.detail + " (edited)";
+  anim = false; $("stage").classList.remove("anim");
+  await renderAudit(S.audit.length);
+});
+
+// ================= scale to window =================
+function fit() { document.documentElement.style.setProperty("--s", Math.min(innerWidth / 1920, innerHeight / 1080)); }
+addEventListener("resize", fit); fit();
+if (!window.crypto?.subtle) document.body.insertAdjacentHTML("beforeend", `<p style="position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:12px;margin:0;z-index:99">Open this page in Chrome or Edge (WebCrypto is needed for the audit log).</p>`);
+else go(0);
+</script>
+</body>
+</html>

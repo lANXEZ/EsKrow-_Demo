@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EsKrow+ Signed QR</title>
+<style>
+  :root {
+    --bg: #f3f5f4;
+    --panel: #ffffff;
+    --ink: #17201b;
+    --muted: #5d6b63;
+    --line: #dde3df;
+    --brand: #1b6b3a;
+    --brand-soft: #e3f1e7;
+    --on-brand: #ffffff;
+    --ok: #18794e;
+    --ok-soft: #e1f5ea;
+    --bad: #c62a2a;
+    --bad-soft: #fde8e8;
+    --warn: #a35a00;
+    --warn-soft: #fff1dc;
+    --skip: #9aa59f;
+    --code: #f6f8f7;
+    --t-fmt: #6b7280;
+    --t-pay: #1d4ed8;
+    --t-amt: #b45309;
+    --t-esk: #7c3aed;
+    --t-sig: #be185d;
+    --t-crc: #0f766e;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1412; --panel: #171e1a; --ink: #e6ece8; --muted: #9aa8a0; --line: #2a342f;
+      --brand: #4cc27a; --brand-soft: #1c3226; --on-brand: #0b1a11; --ok: #4cc27a; --ok-soft: #173023;
+      --bad: #ff6b6b; --bad-soft: #3a1c1c; --warn: #f0a443; --warn-soft: #3a2a14; --skip: #5f6b65;
+      --code: #111714; --t-fmt: #9ca3af; --t-pay: #7aa2ff; --t-amt: #f3b25c; --t-esk: #b79bff;
+      --t-sig: #f472b6; --t-crc: #5ad1c2; --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1412; --panel: #171e1a; --ink: #e6ece8; --muted: #9aa8a0; --line: #2a342f;
+    --brand: #4cc27a; --brand-soft: #1c3226; --on-brand: #0b1a11; --ok: #4cc27a; --ok-soft: #173023;
+    --bad: #ff6b6b; --bad-soft: #3a1c1c; --warn: #f0a443; --warn-soft: #3a2a14; --skip: #5f6b65;
+    --code: #111714; --t-fmt: #9ca3af; --t-pay: #7aa2ff; --t-amt: #f3b25c; --t-esk: #b79bff;
+    --t-sig: #f472b6; --t-crc: #5ad1c2; --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 "Segoe UI", system-ui, -apple-system, "Leelawadee UI", sans-serif;
+  }
+  header { padding: 20px 24px 8px; max-width: 1480px; margin: 0 auto; }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  header h1 span { color: var(--brand); }
+  header p { margin: 4px 0 0; color: var(--muted); max-width: 900px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 99px;
+         background: var(--warn-soft); color: var(--warn); vertical-align: middle; margin-left: 8px; }
+  main { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
+         padding: 12px 24px 24px; max-width: 1480px; margin: 0 auto; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; padding: 12px 16px; } header { padding: 16px 16px 4px; } }
+  section.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+                  box-shadow: var(--shadow); padding: 16px; min-width: 0; }
+  .ph { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .ph .n { width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: var(--on-brand);
+           display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+  .ph h2 { margin: 0; font-size: 16px; }
+  .ph small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--code);
+                            border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; }
+  textarea { font: 12px/1.45 Consolas, "Cascadia Mono", monospace; resize: vertical; min-height: 90px; word-break: break-all; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button { font: inherit; font-weight: 600; cursor: pointer; border-radius: 9px; padding: 8px 12px;
+           border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+  button:hover:not(:disabled) { border-color: var(--brand); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+  button.danger { color: var(--bad); }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .full { width: 100%; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 12px; background: var(--code); }
+  .card h3 { margin: 0 0 6px; font-size: 13px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; word-break: break-all; }
+  .qrbox { display: flex; gap: 12px; align-items: flex-start; margin-top: 10px; }
+  .qrbox img { width: 148px; height: 148px; image-rendering: pixelated; background: #fff; border-radius: 6px;
+               padding: 4px; border: 1px solid var(--line); flex: none; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; word-break: break-all; }
+  .tlv span { border-radius: 3px; padding: 0 1px; }
+  .c-fmt { color: var(--t-fmt); } .c-pay { color: var(--t-pay); } .c-amt { color: var(--t-amt); font-weight: 700; }
+  .c-esk { color: var(--t-esk); } .c-sig { color: var(--t-sig); } .c-crc { color: var(--t-crc); font-weight: 700; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; margin-top: 6px; }
+  .legend b { font-weight: 600; }
+  .attacks { display: grid; gap: 6px; margin-top: 8px; }
+  .attack { text-align: left; font-weight: 500; display: flex; gap: 10px; align-items: flex-start; }
+  .attack .ic { flex: none; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+                font-size: 12px; font-weight: 700; background: var(--bad-soft); color: var(--bad); }
+  .attack.good .ic { background: var(--ok-soft); color: var(--ok); }
+  .attack b { display: block; font-weight: 600; }
+  .attack small { color: var(--muted); font-size: 12px; }
+  .attack.sel { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+  .diff { font-size: 12px; margin-top: 8px; }
+  .diff div { padding: 2px 6px; border-radius: 4px; margin-top: 3px; }
+  .diff .d { background: var(--bad-soft); }
+
+  /* phone */
+  .phone { max-width: 380px; margin: 0 auto; border: 10px solid #1d2420; border-radius: 34px; overflow: hidden;
+           background: var(--panel); }
+  .pbar { background: var(--brand); color: var(--on-brand); padding: 14px 16px 12px; }
+  .pbar b { font-size: 15px; } .pbar small { display: block; opacity: .85; font-size: 12px; }
+  .pbody { padding: 12px; min-height: 520px; }
+  .chat { background: var(--code); border-radius: 12px; padding: 10px; }
+  .bubble { background: var(--panel); border: 1px solid var(--line); border-radius: 12px 12px 12px 4px;
+            padding: 8px; max-width: 86%; font-size: 13px; }
+  .bubble img { width: 132px; height: 132px; display: block; margin-top: 6px; image-rendering: pixelated;
+                background: #fff; border-radius: 4px; padding: 3px; }
+  .who { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .checks { list-style: none; padding: 0; margin: 10px 0 0; font-size: 12.5px; }
+  .checks li { display: grid; grid-template-columns: 20px 1fr; gap: 6px; padding: 5px 0; border-top: 1px dashed var(--line); }
+  .checks li:first-child { border-top: 0; }
+  .checks .s { font-weight: 800; text-align: center; }
+  .checks .pass .s { color: var(--ok); } .checks .fail .s { color: var(--bad); } .checks .skip { color: var(--skip); }
+  .checks .why { display: block; font-size: 11.5px; color: var(--muted); }
+  .checks .fail .why { color: var(--bad); }
+  .verdict { border-radius: 12px; padding: 12px; margin-top: 10px; }
+  .verdict h3 { margin: 0 0 4px; font-size: 15px; }
+  .verdict p { margin: 0; font-size: 12.5px; }
+  .v-ok { background: var(--ok-soft); color: var(--ok); }
+  .v-bad { background: var(--bad-soft); color: var(--bad); }
+  .v-warn { background: var(--warn-soft); color: var(--warn); }
+  .v-ok .kv, .v-ok .kv dt { color: var(--ink); }
+  .scanrow { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; margin-top: 10px; }
+  video { width: 100%; border-radius: 10px; margin-top: 8px; display: none; background: #000; }
+  .status { font-size: 12px; margin-top: 8px; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 99px; padding: 1px 8px; }
+  .p-await { background: var(--warn-soft); color: var(--warn); }
+  .p-held { background: var(--ok-soft); color: var(--ok); }
+  .p-done { background: var(--line); color: var(--muted); }
+  table.reg { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+  table.reg td, table.reg th { text-align: left; padding: 4px 4px; border-top: 1px solid var(--line); }
+  table.reg th { color: var(--muted); font-weight: 600; border-top: 0; }
+
+  .how { max-width: 1480px; margin: 0 auto; padding: 0 24px 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 1100px) { .how { grid-template-columns: 1fr; padding: 0 16px 24px; } }
+  .how section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .how h2 { font-size: 15px; margin: 0 0 8px; }
+  .how ol, .how ul { margin: 0; padding-left: 20px; } .how li { margin: 4px 0; }
+  .themebtn { float: right; font-size: 12px; padding: 4px 10px; }
+</style>
+</head>
+<body>
+<header>
+  <button class="themebtn" id="themeBtn" type="button">Theme</button>
+  <h1><span>EsKrow+</span> Signed Payment QR <span class="tag">Proof of concept · all data simulated</span></h1>
+  <p>The bank signs every EsKrow+ payment QR with its private key. The buyer's bank app holds the bank's public key and checks the signature before allowing payment. Try to get a fake or edited QR past the buyer's app.</p>
+</header>
+
+<main>
+  <!-- 1. BANK -->
+  <section class="panel" aria-labelledby="h-bank">
+    <div class="ph"><div class="n">1</div><h2 id="h-bank">Bank server<small>Creates the escrow deal and signs the QR</small></h2></div>
+
+    <div class="row">
+      <div><label for="fBuyer">Buyer</label>
+        <select id="fBuyer"><option value="U-PLOY-0424">Ploy S. (U-PLOY-0424)</option><option value="U-NOK-1187">Nok W. (U-NOK-1187)</option></select></div>
+      <div><label for="fAmount">Amount (THB)</label><input id="fAmount" type="number" min="1" step="0.01" value="18000"></div>
+    </div>
+    <div class="row">
+      <div><label for="fSeller">Seller</label><input id="fSeller" value="@iphone.bkk.shop" maxlength="40"></div>
+      <div><label for="fItem">Item</label><input id="fItem" value="iPhone 15 128GB Black" maxlength="40"></div>
+    </div>
+    <button class="primary full" id="btnCreate" type="button" style="margin-top:12px">Create escrow deal &amp; sign QR</button>
+
+    <div class="card">
+      <h3>Bank signing key</h3>
+      <dl class="kv">
+        <dt>Key ID</dt><dd class="mono" id="kid">…</dd>
+        <dt>Algorithm</dt><dd>ECDSA P-256 / SHA-256 (ES256)</dd>
+        <dt>Private key</dt><dd>Non-extractable (an HSM in production)</dd>
+        <dt>Public key</dt><dd class="mono" id="fpBank">…</dd>
+      </dl>
+    </div>
+
+    <div id="issued" class="card" hidden>
+      <h3>Signed QR issued for deal <span id="issuedId" class="mono"></span></h3>
+      <div class="qrbox"><img id="issuedQr" alt="Signed EsKrow+ QR code"><div class="small muted">Sent to the seller's app, who shares it with the buyer in chat.<br><br>The money goes to the <b>bank's escrow account</b>, never to the seller directly.</div></div>
+      <details open><summary>QR payload (EMVCo / Thai QR format)</summary>
+        <div class="mono tlv" id="issuedTlv" style="margin-top:6px"></div>
+        <div class="legend"><span class="c-fmt"><b>■</b> format</span><span class="c-pay"><b>■</b> payee</span><span class="c-amt"><b>■</b> amount</span><span class="c-esk"><b>■</b> EsKrow+ deal data</span><span class="c-sig"><b>■</b> bank signature</span><span class="c-crc"><b>■</b> CRC</span></div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h3>Deal registry <span class="muted small">(bank database)</span></h3>
+      <table class="reg"><thead><tr><th>Deal</th><th>Buyer</th><th>Amount</th><th>Status</th></tr></thead><tbody id="reg"></tbody></table>
+    </div>
+  </section>
+
+  <!-- 2. SELLER -->
+  <section class="panel" aria-labelledby="h-seller">
+    <div class="ph"><div class="n">2</div><h2 id="h-seller">Seller's phone<small>Honest seller, or a scammer trying to bypass escrow</small></h2></div>
+    <div id="sellerEmpty" class="card small muted">Create a deal in panel 1 first. The seller receives the signed QR here.</div>
+    <div id="sellerTools" hidden>
+      <div class="small muted">Choose what to send the buyer:</div>
+      <div class="attacks" id="attacks"></div>
+
+      <details id="manualBox"><summary>Advanced: edit the raw QR text yourself</summary>
+        <textarea id="manual" spellcheck="false" aria-label="Raw QR payload"></textarea>
+        <label style="display:flex;gap:6px;align-items:center;color:var(--ink);font-size:12px"><input type="checkbox" id="fixCrc" checked style="width:auto"> Recompute the CRC after editing (what a real attacker would do)</label>
+        <button id="btnManual" type="button" style="margin-top:6px">Use my edited payload</button>
+      </details>
+
+      <div class="card" id="outbox" hidden>
+        <h3>About to send in chat</h3>
+        <div class="qrbox"><img id="sendQr" alt="QR code the seller will send"><div class="small" id="sendNote"></div></div>
+        <div class="diff" id="diff"></div>
+        <button class="primary full" id="btnSend" type="button" style="margin-top:10px">Send to buyer in chat →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. BUYER -->
+  <section class="panel" aria-labelledby="h-buyer">
+    <div class="ph"><div class="n">3</div><h2 id="h-buyer">Buyer's bank app<small>Verifies the QR on the phone before paying</small></h2></div>
+    <div class="phone">
+      <div class="pbar"><b>Bank app · EsKrow+</b><small>Logged in as <span id="me">Ploy S. (U-PLOY-0424)</span></small></div>
+      <div class="pbody">
+        <div class="chat" id="chat"><div class="small muted">Seller chat (e.g. Instagram DM). Nothing received yet.</div></div>
+        <div class="scanrow">
+          <button class="primary" id="btnScanChat" type="button" disabled>Scan QR from chat</button>
+          <button id="btnUpload" type="button" title="Scan a saved QR image">Image</button>
+          <button id="btnCam" type="button" title="Scan with camera">Camera</button>
+        </div>
+        <input type="file" id="file" accept="image/*" hidden>
+        <video id="video" playsinline muted></video>
+        <div id="result"></div>
+      </div>
+    </div>
+    <div class="small muted" style="text-align:center;margin-top:8px">Pinned bank key in app: <span class="mono" id="fpPinned">…</span></div>
+  </section>
+</main>
+
+<div class="how">
+  <section>
+    <h2>What the buyer's app checks</h2>
+    <ol>
+      <li><b>QR format and CRC.</b> The CRC only catches damaged codes. Anyone can recompute it, so it proves nothing about who made the QR.</li>
+      <li><b>EsKrow+ tag present.</b> An ordinary PromptPay QR has no EsKrow+ data. The app warns that the payment is <i>not protected</i>.</li>
+      <li><b>Signature from a pinned bank key.</b> The app ships with the bank's public key. A changed amount or payee, or a QR the seller signed with their own key, fails here.</li>
+      <li><b>Payee is the bank's escrow account.</b></li>
+      <li><b>Not expired, and issued for this buyer.</b> This stops a seller reusing an old, genuine QR from another deal.</li>
+      <li><b>Deal still open.</b> An online check with the bank, so a paid QR can't be paid twice.</li>
+    </ol>
+  </section>
+  <section>
+    <h2>What changes in production</h2>
+    <ul>
+      <li>The private key lives in the bank's HSM and signs on the server. The demo uses WebCrypto in this page with a non-extractable key.</li>
+      <li>Public keys are built into the app, with a key ID (<span class="mono">kid</span>) so keys can be rotated without breaking old app versions.</li>
+      <li>The QR stays EMVCo / Thai QR compatible. EsKrow+ data uses the unreserved template tags 80–82, so other bank apps can still read the payee, while the bank app can also verify the signature.</li>
+      <li>The deal ID is also the bill-payment reference, so the bank can match any incoming transfer to its deal.</li>
+      <li>All IDs, accounts and biller numbers here are fake and won't resolve in a real banking app.</li>
+    </ul>
+  </section>
+</div>
+
+<canvas id="scratch" hidden></canvas>
+<script src="vendor/qrcode.js"></script>
+<script src="vendor/jsQR.js"></script>
+<script>
+"use strict";
+// ---------- constants ----------
+const ESCROW_BILLER = "099400000000001";   // fake biller ID for the bank's escrow account
+const PROMPTPAY_BILL_AID = "A000000677010112";
+const PROMPTPAY_P2P_AID = "A000000677010111";
+const ESK_GUID = "TH.ESKROW";
+const KID = "bank-2026-01";
+const TTL_SEC = 15 * 60;
+const USERS = { "U-PLOY-0424": "Ploy S.", "U-NOK-1187": "Nok W." };
+const ME = "U-PLOY-0424";
+
+const enc = new TextEncoder();
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const thb = n => "฿" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const now = () => Math.floor(Date.now() / 1000);
+
+// ---------- EMVCo TLV ----------
+function tlv(tag, value) {
+  value = String(value);
+  if (value.length > 99) throw new Error(`Field ${tag} is too long`);
+  return tag + String(value.length).padStart(2, "0") + value;
+}
+function parseTLV(str) {
+  const out = []; let i = 0;
+  while (i < str.length) {
+    const tag = str.substr(i, 2), lenStr = str.substr(i + 2, 2);
+    if (!/^\d{2}$/.test(tag) || !/^\d{2}$/.test(lenStr)) throw new Error("Malformed field at position " + i);
+    const len = +lenStr, value = str.substr(i + 4, len);
+    if (value.length !== len) throw new Error("Field " + tag + " is cut short");
+    out.push({ tag, value, start: i, end: i + 4 + len });
+    i += 4 + len;
+  }
+  return out;
+}
+const sub = (fields, tag) => { const f = fields.find(x => x.tag === tag); return f ? f.value : undefined; };
+function crc16(str) {
+  let crc = 0xFFFF;
+  for (const b of enc.encode(str)) {
+    crc ^= b << 8;
+    for (let k = 0; k < 8; k++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+const withCrc = body => body + "6304" + crc16(body + "6304");
+const stripCrc = s => s.replace(/6304[0-9A-Fa-f]{4}$/, "");
+
+// ---------- crypto helpers ----------
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+const sha256hex = async s => [...new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s)))].map(b => b.toString(16).padStart(2, "0")).join("");
+const binding = async (buyerId, dealId) => (await sha256hex("eskrow-binding|" + buyerId + "|" + dealId)).slice(0, 12).toUpperCase();
+async function fingerprint(pubKey) {
+  const spki = await crypto.subtle.exportKey("spki", pubKey);
+  const hex = [...new Uint8Array(await crypto.subtle.digest("SHA-256", spki))].map(b => b.toString(16).padStart(2, "0").toUpperCase());
+  return hex.slice(0, 8).join(":") + "…";
+}
+const EC = { name: "ECDSA", namedCurve: "P-256" };
+const SIG = { name: "ECDSA", hash: "SHA-256" };
+
+// ---------- QR helpers ----------
+function qrDataUrl(text) {
+  const qr = qrcode(0, "M"); qr.addData(text, "Byte"); qr.make();
+  return qr.createDataURL(4, 4);
+}
+function decodeImage(img) {
+  const c = $("scratch"), ctx = c.getContext("2d", { willReadFrequently: true });
+  c.width = img.naturalWidth || img.videoWidth || img.width; c.height = img.naturalHeight || img.videoHeight || img.height;
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  const d = ctx.getImageData(0, 0, c.width, c.height);
+  const r = jsQR(d.data, d.width, d.height, { inversionAttempts: "attemptBoth" });
+  return r ? r.data : null;
+}
+
+// ---------- state ----------
+const S = {
+  bankPriv: null, bankPub: null,   // bank side (private key never leaves)
+  pinned: {},                      // client side: kid -> imported public key
+  deals: {},                       // bank deal registry
+  seq: 0,
+  current: null,                   // latest genuine deal { id, payload }
+  oldPayload: null,                // genuine QR from an older deal
+  outgoing: null,                  // what the seller is about to send
+  chatPayload: null,               // what the buyer received
+};
+
+// ---------- BANK: build + sign ----------
+async function buildSignedPayload(d, signKey, kid = KID) {
+  const body =
+    tlv("00", "01") + tlv("01", "12") +
+    tlv("30", tlv("00", PROMPTPAY_BILL_AID) + tlv("01", ESCROW_BILLER) + tlv("02", d.id) + tlv("03", "ESKROW")) +
+    tlv("53", "764") + tlv("54", Number(d.amount).toFixed(2)) + tlv("58", "TH") +
+    tlv("59", "ESKROW+ ESCROW") + tlv("60", "BANGKOK") +
+    tlv("80", tlv("00", ESK_GUID) + tlv("01", kid) + tlv("02", d.bind) + tlv("03", String(d.exp))) +
+    tlv("81", tlv("00", d.seller) + tlv("01", d.item));
+  const sig = await crypto.subtle.sign(SIG, signKey, enc.encode(body));
+  return withCrc(body + tlv("82", tlv("00", "ES256") + tlv("01", b64u(sig))));
+}
+async function createDeal({ buyer, seller, item, amount, iat }) {
+  S.seq++;
+  const id = "EK2610" + String(13000 + S.seq).padStart(6, "0");
+  iat = iat ?? now();
+  const d = { id, buyer, seller, item, amount: Number(amount), iat, exp: iat + TTL_SEC, status: "awaiting", bind: await binding(buyer, id) };
+  d.payload = await buildSignedPayload(d, S.bankPriv);
+  S.deals[id] = d;
+  return d;
+}
+
+// ---------- SELLER: attacks ----------
+const ATTACKS = [
+  { key: "genuine", good: true, title: "Send the genuine QR", desc: "Honest seller forwards the bank's signed QR.",
+    make: () => S.current.payload },
+  { key: "promptpay", title: "Swap in my own PromptPay QR", desc: "A normal transfer straight to my account. No escrow.",
+    make: () => withCrc(tlv("00", "01") + tlv("01", "12") +
+      tlv("29", tlv("00", PROMPTPAY_P2P_AID) + tlv("01", "0066000000000")) +   // fake, unregistered number
+      tlv("53", "764") + tlv("54", S.current.amount.toFixed(2)) + tlv("58", "TH")) },
+  { key: "payee", title: "Edit the payee to my account", desc: "Keep the EsKrow+ data and signature, change where money goes, fix the CRC.",
+    make: () => editField(S.current.payload, "30", v => v.replace(tlv("01", ESCROW_BILLER), tlv("01", "099400000000777"))) },
+  { key: "amount", title: "Raise the amount", desc: "Change ฿18,000 to ฿28,000 and fix the CRC.",
+    make: () => editField(S.current.payload, "54", v => (Number(v) + 10000).toFixed(2)) },
+  { key: "forge", title: "Sign it with my own key", desc: "Make my own key pair, claim the bank's key ID, sign a QR to my account.",
+    make: async () => {
+      const mine = await crypto.subtle.generateKey(EC, false, ["sign", "verify"]);
+      return editAndResign(S.current.payload, mine.privateKey);
+    } },
+  { key: "replay", title: "Reuse an old genuine QR", desc: "A real bank-signed QR from Nok's deal 3 days ago. Signature is valid.",
+    make: () => S.oldPayload },
+];
+
+function editField(payload, tag, fn) {
+  const fields = parseTLV(stripCrc(payload));
+  const body = fields.map(f => f.tag === tag ? tlv(f.tag, fn(f.value)) : tlv(f.tag, f.value)).join("");
+  return withCrc(body);
+}
+// forge: point payee at the attacker, then sign with the attacker's key
+async function editAndResign(payload, key) {
+  const fields = parseTLV(stripCrc(payload)).filter(f => f.tag !== "82");
+  const body = fields.map(f => f.tag === "30" ? tlv("30", f.value.replace(tlv("01", ESCROW_BILLER), tlv("01", "099400000000777"))) : tlv(f.tag, f.value)).join("");
+  const sig = await crypto.subtle.sign(SIG, key, enc.encode(body));
+  return withCrc(body + tlv("82", tlv("00", "ES256") + tlv("01", b64u(sig))));
+}
+
+// ---------- BUYER: verify ----------
+async function verify(raw, me) {
+  const C = [];
+  const add = (name, ok, why) => C.push({ name, ok, why });
+  const finish = (verdict, extra = {}) => ({ checks: C, verdict, ...extra });
+  const NAMES = ["QR format readable", "CRC checksum", "EsKrow+ protection data", "Signed by a pinned bank key",
+                 "Payee is the bank's escrow account", "Not expired", "Issued for this buyer", "Deal still open (online check)"];
+
+  let top;
+  try {
+    top = parseTLV(raw);
+    if (sub(top, "00") !== "01") throw new Error("Not an EMVCo payment QR");
+    add(NAMES[0], true, "EMVCo / Thai QR payment code");
+  } catch (e) { add(NAMES[0], false, e.message); return finish("bad", { reason: "This is not a payment QR code." }); }
+
+  const crcF = top.find(f => f.tag === "63");
+  const crcOk = !!crcF && crcF.end === raw.length && crc16(raw.slice(0, crcF.start + 4)) === crcF.value.toUpperCase();
+  add(NAMES[1], crcOk, crcOk ? "Matches. Only proves the code isn't damaged." : "Checksum mismatch: the code is damaged or edited");
+  if (!crcOk) return finish("bad", { reason: "The QR code is damaged or was edited." });
+
+  const amount = Number(sub(top, "54") || 0);
+  const t80 = top.find(f => f.tag === "80");
+  const esk = t80 ? parseTLV(t80.value) : null;
+  if (!esk || sub(esk, "00") !== ESK_GUID) {
+    add(NAMES[2], false, "None found. This is an ordinary transfer QR.");
+    const open = Object.values(S.deals).find(d => d.buyer === me && d.status === "awaiting");
+    return finish("warn", { reason: "Ordinary transfer, NOT protected by EsKrow+.", amount, open });
+  }
+  add(NAMES[2], true, "Deal " + (sub(parseTLV(sub(top, "30") || ""), "02") || "?"));
+
+  const t82 = top.find(f => f.tag === "82");
+  const kid = sub(esk, "01");
+  const key = S.pinned[kid];
+  let sigOk = false, sigWhy;
+  if (!t82 || top.indexOf(t82) !== top.length - 2) sigWhy = "Signature missing or not in the expected place";
+  else if (!key) sigWhy = "Unknown key ID \"" + kid + "\"";
+  else {
+    const s = parseTLV(t82.value);
+    try {
+      sigOk = sub(s, "00") === "ES256" && await crypto.subtle.verify(SIG, key, unb64u(sub(s, "01") || ""), enc.encode(raw.slice(0, t82.start)));
+    } catch { sigOk = false; }
+    sigWhy = sigOk ? "Valid ES256 signature, key " + kid : "Signature does not match the QR content";
+  }
+  add(NAMES[3], sigOk, sigWhy);
+  const rest = i => NAMES.slice(i).forEach(n => C.push({ name: n, ok: null }));
+  if (!sigOk) { rest(4); return finish("bad", { reason: "Fake or edited EsKrow+ QR. The bank did not sign this exact content." }); }
+
+  const pay = parseTLV(sub(top, "30") || "");
+  const dealId = sub(pay, "02");
+  const payeeOk = sub(pay, "00") === PROMPTPAY_BILL_AID && sub(pay, "01") === ESCROW_BILLER;
+  add(NAMES[4], payeeOk, payeeOk ? "Biller " + ESCROW_BILLER : "Unexpected payee");
+  if (!payeeOk) { rest(5); return finish("bad", { reason: "Payee is not the escrow account." }); }
+
+  const exp = Number(sub(esk, "03"));
+  const expOk = now() < exp;
+  add(NAMES[5], expOk, expOk ? "Valid for " + Math.ceil((exp - now()) / 60) + " more min" : "Expired " + new Date(exp * 1000).toLocaleString());
+
+  const bindOk = sub(esk, "02") === await binding(me, dealId);
+  add(NAMES[6], bindOk, bindOk ? "Bound to your account" : "This QR was issued to a different buyer");
+
+  const d = S.deals[dealId];
+  const openOk = !!d && d.status === "awaiting";
+  add(NAMES[7], openOk, openOk ? "Bank confirms: awaiting payment" : (d ? "Bank says: already paid (" + label(d.status).toLowerCase() + ")" : "Deal not found"));
+
+  const disp = parseTLV(sub(top, "81") || "");
+  const info = { dealId, amount, seller: sub(disp, "00"), item: sub(disp, "01") };
+  if (expOk && bindOk && openOk) return finish("ok", { reason: "Verified EsKrow+ deal", ...info });
+  return finish("bad", { reason: "Genuine bank QR, but not valid for this payment.", ...info });
+}
+
+// ---------- rendering ----------
+const label = s => ({ awaiting: "Awaiting payment", held: "Funds held in escrow", released: "Released" }[s]);
+function renderRegistry() {
+  $("reg").innerHTML = Object.values(S.deals).reverse().map(d =>
+    `<tr><td class="mono">${esc(d.id)}</td><td>${esc(USERS[d.buyer])}</td><td>${thb(d.amount)}</td>
+     <td><span class="pill ${d.status === "awaiting" ? "p-await" : d.status === "held" ? "p-held" : "p-done"}">${label(d.status)}</span></td></tr>`).join("");
+}
+function colorTlv(payload) {
+  const cls = { "00": "fmt", "01": "fmt", "53": "fmt", "58": "fmt", "59": "pay", "60": "pay", "29": "pay", "30": "pay", "54": "amt", "80": "esk", "81": "esk", "82": "sig", "63": "crc" };
+  try { return parseTLV(payload).map(f => `<span class="c-${cls[f.tag] || "fmt"}">${esc(payload.slice(f.start, f.end))}</span>`).join(""); }
+  catch { return esc(payload); }
+}
+function describe(payload) {
+  try {
+    const top = parseTLV(stripCrc(payload));
+    const o = { amount: sub(top, "54") };
+    const pay = sub(top, "30") ?? sub(top, "29");
+    if (pay) { const p = parseTLV(pay); o.payee = sub(p, "01"); o.ref = sub(p, "02"); }
+    const e = sub(top, "80"); if (e) { const x = parseTLV(e); o.kid = sub(x, "01"); o.buyerBind = sub(x, "02"); o.expires = sub(x, "03"); }
+    const s = sub(top, "82"); o.signature = s ? sub(parseTLV(s), "01").slice(0, 18) + "…" : "(none)";
+    return o;
+  } catch { return { raw: "unparseable" }; }
+}
+function renderDiff(payload) {
+  if (payload === S.current.payload) { $("diff").innerHTML = ""; return; }
+  const a = describe(S.current.payload), b = describe(payload);
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter(k => a[k] !== b[k]);
+  $("diff").innerHTML = keys.length ? `<div class="muted">Changed compared with the genuine QR:</div>` +
+    keys.map(k => `<div class="d"><b>${esc(k)}</b>: ${esc(a[k] ?? "–")} → ${esc(b[k] ?? "(removed)")}</div>`).join("") : "";
+}
+function renderAttacks(sel) {
+  $("attacks").innerHTML = ATTACKS.map(a =>
+    `<button type="button" class="attack ${a.good ? "good" : ""} ${sel === a.key ? "sel" : ""}" data-k="${a.key}">
+      <span class="ic">${a.good ? "✓" : "!"}</span><span><b>${esc(a.title)}</b><small>${esc(a.desc)}</small></span></button>`).join("");
+}
+async function chooseAttack(key) {
+  const a = ATTACKS.find(x => x.key === key);
+  setOutgoing(await a.make(), a.title, key);
+}
+function setOutgoing(payload, title, key) {
+  S.outgoing = payload;
+  renderAttacks(key);
+  $("outbox").hidden = false;
+  $("sendQr").src = qrDataUrl(payload);
+  $("sendNote").innerHTML = `<b>${esc(title)}</b><br><span class="muted">${payload.length} characters</span>`;
+  $("manual").value = payload;
+  renderDiff(payload);
+}
+function sendToBuyer() {
+  S.chatPayload = S.outgoing;
+  $("chat").innerHTML = `<div class="who">${esc(S.current.seller)}</div>
+    <div class="bubble">Scan this to pay for the ${esc(S.current.item)} na 🙏<img id="chatQr" alt="QR code from seller" src="${qrDataUrl(S.outgoing)}"></div>`;
+  $("btnScanChat").disabled = false;
+  $("result").innerHTML = "";
+}
+function renderResult(r) {
+  const row = c => `<li class="${c.ok === null ? "skip" : c.ok ? "pass" : "fail"}"><span class="s">${c.ok === null ? "–" : c.ok ? "✓" : "✗"}</span>
+    <span>${esc(c.name)}${c.why ? `<span class="why">${esc(c.why)}</span>` : ""}</span></li>`;
+  let v;
+  if (r.verdict === "ok") {
+    v = `<div class="verdict v-ok"><h3>✓ ${esc(r.reason)}</h3>
+      <dl class="kv" style="margin:6px 0 10px"><dt>Seller</dt><dd>${esc(r.seller)}</dd><dt>Item</dt><dd>${esc(r.item)}</dd>
+      <dt>Amount</dt><dd><b>${thb(r.amount)}</b></dd><dt>Deal</dt><dd class="mono">${esc(r.dealId)}</dd></dl>
+      <p>Your money is held by the bank and released to the seller only after delivery is verified.</p>
+      <button class="primary full" id="btnPay" data-deal="${esc(r.dealId)}" type="button" style="margin-top:10px">Pay ${thb(r.amount)} into escrow</button></div>`;
+  } else if (r.verdict === "warn") {
+    v = `<div class="verdict v-warn"><h3>⚠ ${esc(r.reason)}</h3>
+      <p>Money sent with this QR goes straight to the account owner. The bank can't hold it or refund it.</p>
+      ${r.open ? `<p style="margin-top:6px">You have an open EsKrow+ deal <b class="mono">${esc(r.open.id)}</b> with ${esc(r.open.seller)} for ${thb(r.open.amount)}. This QR is not linked to it. Ask the seller for the EsKrow+ QR.</p>` : ""}
+      <button class="full danger" type="button" style="margin-top:10px" onclick="this.textContent='Reported to the bank (simulated)';this.disabled=true">Report this seller</button></div>`;
+  } else {
+    v = `<div class="verdict v-bad"><h3>✗ Do not pay</h3><p>${esc(r.reason)}</p>
+      <button class="full danger" type="button" style="margin-top:10px" onclick="this.textContent='Reported to the bank (simulated)';this.disabled=true">Report this seller</button></div>`;
+  }
+  $("result").innerHTML = `<ul class="checks">${r.checks.map(row).join("")}</ul>${v}`;
+}
+async function scan(text, source) {
+  if (!text) { $("result").innerHTML = `<div class="verdict v-bad"><h3>No QR code found</h3><p>Couldn't read a QR code from the ${esc(source)}.</p></div>`; return; }
+  renderResult(await verify(text.trim(), ME));
+}
+
+// ---------- camera ----------
+let camStream = null;
+async function toggleCamera() {
+  const v = $("video");
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; v.style.display = "none"; $("btnCam").textContent = "Camera"; return; }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+  } catch (e) { $("result").innerHTML = `<div class="verdict v-bad"><h3>Camera unavailable</h3><p>${esc(e.message)}</p></div>`; return; }
+  v.srcObject = camStream; v.style.display = "block"; await v.play(); $("btnCam").textContent = "Stop";
+  const tick = () => {
+    if (!camStream) return;
+    if (v.readyState >= 2) {
+      const text = decodeImage(v);
+      if (text) { toggleCamera(); scan(text, "camera"); return; }
+    }
+    requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+// ---------- wiring ----------
+async function init() {
+  if (!window.crypto?.subtle) { document.body.insertAdjacentHTML("afterbegin", `<p style="padding:16px;color:#c62a2a">WebCrypto is unavailable. Open this page in Chrome or Edge, from a file or localhost.</p>`); return; }
+  const kp = await crypto.subtle.generateKey(EC, false, ["sign", "verify"]);
+  S.bankPriv = kp.privateKey; S.bankPub = kp.publicKey;
+  // "ship" the public key inside the app: export, then import on the client side
+  const spki = await crypto.subtle.exportKey("spki", kp.publicKey);
+  S.pinned[KID] = await crypto.subtle.importKey("spki", spki, EC, false, ["verify"]);
+  $("kid").textContent = KID;
+  $("fpBank").textContent = $("fpPinned").textContent = await fingerprint(kp.publicKey);
+  $("me").textContent = USERS[ME] + " (" + ME + ")";
+
+  // an older, genuine deal for a different buyer: already paid and released
+  const old = await createDeal({ buyer: "U-NOK-1187", seller: "@iphone.bkk.shop", item: "iPhone 14 128GB", amount: 15500, iat: now() - 3 * 86400 });
+  old.status = "released"; S.oldPayload = old.payload;
+  renderRegistry();
+
+  $("btnCreate").onclick = async () => {
+    const amount = Number($("fAmount").value);
+    if (!(amount > 0)) { $("fAmount").focus(); return; }
+    const d = await createDeal({ buyer: $("fBuyer").value, seller: $("fSeller").value.trim() || "@seller", item: $("fItem").value.trim() || "Item", amount });
+    S.current = d;
+    $("issued").hidden = false; $("issuedId").textContent = d.id;
+    $("issuedQr").src = qrDataUrl(d.payload); $("issuedTlv").innerHTML = colorTlv(d.payload);
+    $("sellerEmpty").hidden = true; $("sellerTools").hidden = false;
+    ATTACKS.find(a => a.key === "amount").desc = `Change ${thb(d.amount)} to ${thb(d.amount + 10000)} and fix the CRC.`;
+    renderRegistry();
+    await chooseAttack("genuine");
+  };
+  $("attacks").onclick = e => { const b = e.target.closest(".attack"); if (b) chooseAttack(b.dataset.k); };
+  $("btnManual").onclick = () => {
+    let p = $("manual").value.trim();
+    if ($("fixCrc").checked) p = withCrc(stripCrc(p));
+    try { setOutgoing(p, "My hand-edited payload", null); } catch (e) { alert("Can't make a QR from that: " + e.message); }
+  };
+  $("btnSend").onclick = sendToBuyer;
+  $("btnScanChat").onclick = () => scan(decodeImage($("chatQr")), "chat image");
+  $("btnUpload").onclick = () => $("file").click();
+  $("file").onchange = () => {
+    const f = $("file").files[0]; if (!f) return;
+    const img = new Image();
+    img.onload = () => { scan(decodeImage(img), "image"); URL.revokeObjectURL(img.src); };
+    img.src = URL.createObjectURL(f); $("file").value = "";
+  };
+  $("btnCam").onclick = toggleCamera;
+  $("result").onclick = e => {
+    const b = e.target.closest("#btnPay"); if (!b) return;
+    const d = S.deals[b.dataset.deal];
+    if (!d || d.status !== "awaiting") return;
+    d.status = "held"; renderRegistry();
+    b.outerHTML = `<p style="margin-top:10px"><b>Paid. ${thb(d.amount)} is now held in escrow.</b> Scan the same QR again: the bank will refuse a second payment.</p>`;
+  };
+  $("themeBtn").onclick = () => {
+    const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    r.dataset.theme = dark ? "light" : "dark";
+  };
+}
+init();
+</script>
+</body>
+</html>
