@@ -143,7 +143,7 @@
   .chk.warn .s { background: var(--warn-soft); color: var(--warn); }
   .chk small { display: block; font-size: 15px; color: var(--muted); }
   .chk.bad small { color: var(--bad); }
-  .chk .cat { font-weight: 800; color: var(--bad); background: var(--bad-soft); font-size: 14px; border-radius: 99px; padding: 3px 12px; white-space: nowrap; }
+  .chk .cat { font-weight: 800; color: var(--muted); background: var(--line); font-size: 14px; border-radius: 99px; padding: 3px 12px; white-space: nowrap; }
   .verdict { border-radius: 18px; padding: 16px 22px; font-size: 26px; font-weight: 800; display: flex; flex-direction: column; gap: 2px; }
   .verdict.row { flex-direction: row; align-items: center; gap: 18px; }
   .verdict.row > span:first-child { flex: none; white-space: nowrap; }
@@ -151,11 +151,13 @@
   .v-bad { background: var(--bad); color: #fff; }
   .v-ok { background: var(--brand); color: #fff; }
   .v-hold { background: var(--hold); color: #fff; }
+  .v-warn { background: var(--warn); color: #fff; }
+  .chk .cat.show { color: var(--brand-dark); background: var(--brand-soft); }
   .levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .lv { border: 2px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: 14px; color: var(--muted); }
   .lv b { display: block; font-size: 16px; }
   .lv.g b { color: var(--brand); } .lv.y b { color: var(--warn); } .lv.r b { color: var(--bad); } .lv.x b { color: var(--ink); }
-  .lv.on { border-color: var(--bad); background: var(--bad-soft); color: var(--bad); }
+  .lv.on { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
 
   /* stats */
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -378,11 +380,12 @@ const DEAL_QR_IMG = (() => { const q = qrcode(0, "M"); q.addData(DEAL_QR); q.mak
 // ================= steps =================
 // internal signals stay inside the bank; Ploy only sees the category (no score, no thresholds)
 const RISK = [
-  ["Account opened 9 days ago", "New accounts are a top mule signal", "New account"],
-  ["47 incoming transfers from 31 different people", "In the last 7 days", "Money flow"],
-  ["94% of money moved out within 10 minutes", "Pass-through pattern typical of mule accounts", "Money flow"],
-  ["3 scam reports from other buyers", "This week", "Reports"],
-  ["Device linked to 2 accounts in the fraud registry", "Central Fraud Registry check (simulated)", "Fraud registry"],
+  // [check, detail, who sees it, passed?] layer 1 = account status from core banking (a gate only), layer 2 = account and transactions
+  ["Account active, not frozen", "Core banking status · a frozen account can't open a deal", "Bank only", true],
+  ["Account opened 9 days ago", "New accounts are a top mule signal", "Shown as a fact"],
+  ["47 incoming transfers from 31 different people", "In the last 7 days", "Bank only"],
+  ["94% of money moved out within 10 minutes", "Pass-through pattern typical of mule accounts", "Bank only"],
+  ["3 scam reports from other buyers", "This week", "Shown as a fact"],
 ];
 // what Ploy sees when she looks the shipment ID up in the carrier's own app (no carrier integration in EsKrow+)
 const SHIP = [
@@ -413,18 +416,18 @@ const STEPS = [
   { beat: 2, title: "A bank-signed deal", sub: "The seller creates an EsKrow+ deal. The bank signs its QR", t: T(13, 19, 43), phone: "deal", focus: "deal",
     note: "<b>Say:</b> “A seller who refuses a protected deal gives himself away, so this one plays along. He creates a deal for Ploy: item, price, her name and address. The bank signs it, and Ploy's app verifies the signature before showing anything.” (Live proof: poc-qr-signing) <b>Then tap</b> “Check seller”.",
     apply: async s => { await log(s, "seller:" + DEAL.seller, "DEAL_CREATED", `${DEAL.id} · for ${BUYER.name} · seller check ✓`); await log(s, "kplus-app", "QR_VERIFIED", "bank signature ✓ · issued for Ploy"); await log(s, "risk-engine", "BUYER_CHECK", "pass · not shown to seller"); } },
-  { beat: 3, title: "Risk check", sub: "Behavioral Risk Signal, from the bank's own transaction data", t: T(13, 19, 43), phone: "risk", focus: "risk",
-    note: "<b>Say:</b> “The bank sees what the seller can't fake: how old the account is, and how money flows through it. Red: high risk. Ploy sees the reasons, not the score, so scammers can't tune around it. The big button says don't pay yet.” <b>Point:</b> a green seller is paid instantly. A red seller means the money must go through escrow.",
-    apply: async s => { await log(s, "risk-engine", "RISK_RATED", "seller xxx-4417 · RED · escrow required"); } },
+  { beat: 3, title: "Risk check", sub: "Account status, then the bank's own transaction data", t: T(13, 19, 43), phone: "risk", focus: "risk",
+    note: "<b>Say:</b> “Two checks. First, the account status in the bank's own system: not frozen, so the deal can go ahead. Accounts frozen through AOC 1441 are blocked here, and the reason is never shown to buyers. Second, the account's behaviour, which catches mule accounts nobody has reported yet: nine days old, money in and straight out. Ploy doesn't see a scary label. She sees plain facts: a new account, no completed deals, reports this week. And her money is held in escrow whoever the seller is.” <b>Point:</b> facts, not verdicts, so an honest seller who once made a mistake isn't branded for life.",
+    apply: async s => { await log(s, "risk-engine", "RISK_RATED", "seller xxx-4417 · status ✓ · facts shown"); } },
   { beat: 4, title: "Escrow contract", sub: "Ploy pays anyway. Now the money is protected by law", t: T(13, 19, 44), phone: "contract", focus: "contract",
-    note: "<b>Say:</b> “Even if she ignores the warning, she's protected. This deal has its own contract under the Escrow Act B.E. 2551, signed by the seller, by Ploy with a face scan, and by the bank as the escrow agent. The seller has 72 hours to ship.”",
-    apply: async s => { await log(s, "buyer:" + BUYER.id, "WARNING_ACKNOWLEDGED", "paid anyway · escrow required"); await log(s, "escrow-svc", "CONTRACT_SIGNED", "seller + buyer (face) + bank"); } },
+    note: "<b>Say:</b> “Even if she ignores the warning, she's protected. This deal has its own contract under the Escrow Act B.E. 2551, signed by the seller and Ploy, each with a live face scan, and by the bank as the escrow agent. The seller has 48 hours to ship.”",
+    apply: async s => { await log(s, "buyer:" + BUYER.id, "WARNING_ACKNOWLEDGED", "paid anyway · held in escrow"); await log(s, "escrow-svc", "CONTRACT_SIGNED", "seller (face) + buyer (face) + bank"); } },
   { beat: 4, title: "Money held in escrow", sub: "Paid to the bank, not to the seller", t: T(13, 19, 45), phone: "held", focus: "held", flash: ["buyer", "escrow"],
     note: "<b>Say:</b> “Ploy pays into escrow. The money sits in a segregated escrow account. By law it's safe even if the bank itself fails.”",
     apply: async s => { s.led.buyer -= DEAL.amount; s.led.escrow += DEAL.amount; s.led.status = "held"; await log(s, "escrow-svc", "FUNDS_HELD", `${thb(DEAL.amount)} in segregated escrow account`); } },
   { beat: 5, title: "Fake shipment", sub: "The seller sends a shipment ID. Ploy checks it before she confirms", t: T(14, 10, 15), phone: "checkship", focus: "checkship",
     note: "<b>Say:</b> “Next morning the seller sends a shipment ID. Ploy's money moves only when she taps Confirm, so she looks the number up in the carrier's app. It's a real parcel, but it's going to Chiang Mai, to someone else, and it was sent two days before she even ordered.” <b>This is the main moment.</b> <b>Point:</b> the bank doesn't call the carrier. The contract shows Ploy exactly what to compare, and the decision to pay stays in her hands. <b>Then tap</b> “Report a problem”.",
-    apply: async s => { await log(s, "seller:" + DEAL.seller, "SHIPMENT_ID_SENT", "Flash Express TH2410887351"); await log(s, "escrow-svc", "BUYER_NOTIFIED", "check and confirm, or report · 48 h"); } },
+    apply: async s => { await log(s, "seller:" + DEAL.seller, "SHIPMENT_ID_SENT", "Flash Express TH2410887351"); await log(s, "escrow-svc", "BUYER_NOTIFIED", "check and confirm, or report · 24 h"); } },
   { beat: 5, title: "Ploy reports", sub: "One tap. The money stays held, and the bank doesn't take sides", t: T(14, 10, 20), phone: "reported", focus: "dispute", flash: ["escrow"],
     note: "<b>Say:</b> “Ploy taps Report, picks a reason and attaches a screenshot of the tracking page. The money stays in escrow. The bank doesn't judge who's right: the two sides can settle in the app, by cancelling, a partial refund or reshipping. If they can't, the evidence goes to the authorities.”",
     apply: async s => { s.led.status = "disp"; await log(s, "buyer:" + BUYER.id, "DEAL_REPORTED", "wrong recipient and address · screenshot"); await log(s, "escrow-svc", "DISPUTE_OPENED", "funds held · settlement offered"); } },
@@ -500,19 +503,18 @@ const PHONE = {
   risk: () => `${EK("Seller check")}
     <div class="pbody">
       <div class="checking"><div class="spinner"></div>Checking seller…</div>
-      <div class="alert a-bad popin" style="--d:2.5s">
-        <h3>⚠ High risk</h3>
-        <p>We recommend you don't pay this seller yet.</p>
-        <ul><li>New account</li><li>Unusual money flow</li><li>Reported by other buyers</li></ul>
+      <div class="alert a-warn popin" style="--d:2.5s">
+        <h3>Things to know before you pay</h3>
+        <ul><li>Account opened less than 1 month ago</li><li>No completed deals yet</li><li>Reported by buyers this week</li></ul>
       </div>
       <div class="pcard in fields" style="--d:2.7s">
         <div class="field">Seller, verified by the bank<b>Mr. T*** W*** · PromptPay ${DEAL.acct}</b></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field">Account age<b>Under 1 month</b></div><div class="field">Completed deals<b>0</b></div></div>
+        <div class="field">Stats shared by the seller · verified by the bank<b style="color:var(--muted)">None yet: no completed EsKrow+ deals</b></div>
       </div>
-      <div class="alert a-hold in" style="--d:2.9s"><p>If you pay, the bank holds your money in escrow. The seller gets it only after you confirm a verified shipment.</p></div>
+      <div class="alert a-hold in" style="--d:2.9s"><p>Whichever seller you choose, your money is held by the bank until you confirm the parcel.</p></div>
       <div class="spacer"></div>
-      <button class="pbtn in" data-noop style="--d:3s;background:var(--bad);border-color:var(--bad)">Don't pay yet</button>
-      <button class="pbtn ghost tap" data-next id="payAnyway" style="--d:3.1s">Pay anyway, held in escrow</button>
+      <button class="pbtn tap" data-next id="payAnyway" style="--d:3s">Pay ${thb(DEAL.amount)} · held in escrow</button>
+      <button class="pbtn ghost in" data-noop style="--d:3.1s">Not now</button>
     </div>`,
 
   contract: () => `${EK("Escrow contract")}
@@ -520,11 +522,11 @@ const PHONE = {
       ${dealHeader}
       <div class="pcard in fields" style="--d:.15s">
         <div class="field">Ship to<b>Ploy S. · Bang Rak, Bangkok 10500</b></div>
-        <div class="field">Seller must ship within<b>72 hours · sends you a shipment ID</b></div>
-        <div class="field">Release<b>When you check the shipment and confirm, or 48 h with no reply</b></div>
-        <div class="field">No shipment ID in 72 h<b>Contract expires · full refund</b></div>
+        <div class="field">Seller must ship within<b>48 hours · sends you a shipment ID</b></div>
+        <div class="field">Release<b>When you check the shipment and confirm, or 24 h with no reply</b></div>
+        <div class="field">No shipment ID in 48 h<b>Contract expires · full refund</b></div>
         <div class="field">Something looks wrong<b>Tap Report · your money stays held</b></div>
-        <div class="field">Signed<b>✓ Seller · ✓ You (face scan) · ✓ Bank</b></div>
+        <div class="field">Signed<b>✓ Seller (face scan) · ✓ You (face scan) · ✓ Bank</b></div>
       </div>
       <div class="spacer"></div>
       <button class="pbtn tap" data-next style="--d:.5s">Pay ${thb(DEAL.amount)} into escrow</button>
@@ -536,9 +538,9 @@ const PHONE = {
       <div class="pcard in" style="--d:.3s">${tl([
         ["done", "✓", "Contract signed", "13 Oct 19:44"],
         ["hold", "✓", "Paid · held in escrow", "13 Oct 19:45"],
-        ["", "3", "Seller sends shipment ID", "Deadline 16 Oct 19:45"],
+        ["", "3", "Seller sends shipment ID", "Deadline 15 Oct 19:45"],
         ["", "4", "You check it with the carrier", ""],
-        ["", "5", "You confirm · paid to seller", "Or automatic 48 h after the ID"]])}</div>
+        ["", "5", "You confirm · paid to seller", "Or automatic 24 h after the ID"]])}</div>
       <div class="field center in" style="--d:.5s">Balance ${thb(s.led.buyer)}</div>
     </div>`,
 
@@ -641,27 +643,26 @@ const FOCUS = {
     <div class="foot in" style="--d:.4s">Every deal gets a new ID and its own contract: seller, item, price, buyer and shipping address. Change any of it and the signature breaks. The buyer check result is never shown to the seller (PDPA). Live proof: <b>poc-qr-signing</b>.</div>`,
 
   risk: () => `
-    <h2 class="in">Behavioral Risk Signal<small>Seller account PromptPay ${DEAL.acct} · inside the bank</small></h2>
-    <div class="checks">${RISK.map(([t, s, c], i) => chk(false, t, s, `<span class="cat">${c}</span>`, .3 + i * .4)).join("")}</div>
-    <div class="levels in" style="--d:2.3s">
-      <div class="lv g"><b>Green</b>Paid instantly</div>
-      <div class="lv y"><b>Yellow</b>Escrow if the amount is unusual</div>
-      <div class="lv r on"><b>Red</b>Escrow always</div>
-      <div class="lv x"><b>Prohibited</b>No pay button</div>
-    </div>
-    <div class="verdict row v-bad popin" style="--d:2.4s"><span style="font-size:34px">RED · High risk</span><span><small>Escrow required · Ploy is warned before paying</small></span></div>
-    <div class="foot in" style="--d:2.6s">Ploy sees the categories, never the score or thresholds, so scammers can't tune around them. They can fake a profile, not how money moves through their account.</div>`,
+    <h2 class="in">Behavioral Risk Signal<small>Seller account PromptPay ${DEAL.acct} · account status + transaction analysis</small></h2>
+    <div class="checks">${RISK.map(([t, s, c, ok], i) => chk(!!ok, t, s, `<span class="cat${c.startsWith("Shown") ? " show" : ""}">${c}</span>`, .3 + i * .4)).join("")}</div>
+    <div class="levels in" style="--d:2.3s;grid-template-columns:repeat(3,1fr)">
+      <div class="lv g"><b>Normal</b>No notice</div>
+      <div class="lv y on"><b>Things to know</b>Facts shown, neutral tone</div>
+      <div class="lv r"><b>Blocked</b>Account frozen by an authority order</div>
+   </div>
+    <div class="verdict row v-warn popin" style="--d:2.4s"><span style="font-size:34px">Things to know</span><span><small>Facts about the account, not a verdict on the person · held in escrow anyway</small></span></div>
+    <div class="foot in" style="--d:2.6s">Ploy sees facts, never the score or thresholds. Honest sellers can add bank-verified stats they're proud of, such as completed deals and unique buyers. Only completed EsKrow+ deals count, so a mule can't turn victims' transfers into a reputation.</div>`,
 
   contract: () => `
     <h2 class="in">Escrow contract<small>Escrow Act B.E. 2551 (พ.ร.บ.การดูแลผลประโยชน์ของคู่สัญญา) · one contract per deal</small></h2>
     <div class="kvt in" style="--d:.15s">
       <div>Parties</div><div>${DEAL.seller} · ${BUYER.name} · the bank as escrow agent <span class="law">s.9</span></div>
-      <div>Shipping rule</div><div>Seller ships and sends a shipment ID within 72 h. The buyer checks the shipment details herself</div>
-      <div>Release rule</div><div>Buyer confirms the shipment, or 48 h pass with no reply <span class="law">s.6(5)</span></div>
-      <div>Expiry rule</div><div>No shipment ID in 72 h → contract expires, refund to the paying account</div>
+      <div>Shipping rule</div><div>Seller ships and sends a shipment ID within 48 h. The buyer checks the shipment details herself</div>
+      <div>Release rule</div><div>Buyer confirms the shipment, or 24 h pass with no reply <span class="law">s.6(5)</span></div>
+      <div>Expiry rule</div><div>No shipment ID in 48 h → contract expires, refund to the paying account</div>
       <div>Buyer report</div><div>Money held. The two sides settle, or the Evidence Pack goes to AOC 1441 / police</div>
       <div>No agreement</div><div>Funds frozen until an authority order or a court ruling <span class="law">s.23</span></div>
-      <div>Signatures</div><div>Electronic, all three parties · buyer by face scan <span class="law">s.6</span></div>
+      <div>Signatures</div><div>Electronic, all three parties · seller and buyer by live face scan <span class="law">s.6</span></div>
     </div>
     <div class="foot in" style="--d:.4s">The rules are agreed before any money moves, so the bank never has to judge who is right.</div>`,
 
@@ -682,7 +683,7 @@ const FOCUS = {
     <h2 class="in">Ploy checks the shipment herself<small>Seller sent Flash Express TH2410887351 · 14 Oct 10:12</small></h2>
     <div class="checks">${SHIP.map(([ok, t, s], i) => chk(ok, t, s, "", .3 + i * .45)).join("")}</div>
     <div class="verdict v-bad popin" style="--d:2.2s">✗ Not her parcel<span><small>Ploy taps Report instead of Confirm · the money stays held</small></span></div>
-    <div class="foot in" style="--d:2.4s">No carrier integration: the contract shows Ploy exactly what to compare, and the decision to pay stays in her hands. 48 h of silence pays the seller, so a real shipment is never stuck.</div>`,
+    <div class="foot in" style="--d:2.4s">No carrier integration: the contract shows Ploy exactly what to compare, and the decision to pay stays in her hands. 24 h of silence pays the seller, so a real shipment is never stuck.</div>`,
 
   dispute: () => `
     <h2 class="in">Dispute opened<small>14 Oct 10:20 · the bank doesn't judge who is right</small></h2>
@@ -849,14 +850,14 @@ async function renderAudit(prevCount) {
   cs.textContent = broken ? "✗ CHAIN BROKEN" : "SHA-256 chain ✓";
   const a = $("audit"); a.style.scrollBehavior = "auto"; a.scrollTop = a.scrollHeight;
 }
-// red card: "Pay anyway" counts down before it reads as ready (the main button is "Don't pay yet")
+// "Things to know" card: the pay button counts down so the buyer reads the facts first
 function countdown(token) {
   const btn = $("payAnyway"), label = btn.textContent;
   let n = 5;
-  btn.textContent = `Pay anyway (${n})`;
+  btn.textContent = `Read first (${n})`;
   const tick = () => {
     if (token !== renderToken) return;
-    btn.textContent = --n ? `Pay anyway (${n})` : label;
+    btn.textContent = --n ? `Read first (${n})` : label;
     if (n) setTimeout(tick, 1000);
   };
   setTimeout(tick, 4100); // the button appears at 3.1 s showing (5)
