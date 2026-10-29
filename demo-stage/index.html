@@ -83,7 +83,6 @@
   .a-warn { background: var(--warn-soft); color: var(--warn); }
   .alert ul { margin: 8px 0 0; padding-left: 20px; font-size: 15px; color: var(--ink); }
   .alert li { margin: 3px 0; }
-  .score { font-size: 48px; font-weight: 900; line-height: 1; }
   .checking { position: absolute; inset: 0; background: var(--panel); z-index: 2; flex-direction: column; align-items: center; justify-content: center; gap: 18px; font-size: 18px; color: var(--muted); }
   .spinner { width: 54px; height: 54px; border-radius: 50%; border: 6px solid var(--brand-soft); border-top-color: var(--brand); animation: spin .9s linear infinite; }
 
@@ -144,7 +143,7 @@
   .chk.warn .s { background: var(--warn-soft); color: var(--warn); }
   .chk small { display: block; font-size: 15px; color: var(--muted); }
   .chk.bad small { color: var(--bad); }
-  .chk .pts { font-weight: 800; color: var(--bad); font-size: 20px; }
+  .chk .cat { font-weight: 800; color: var(--bad); background: var(--bad-soft); font-size: 14px; border-radius: 99px; padding: 3px 12px; white-space: nowrap; }
   .verdict { border-radius: 18px; padding: 16px 22px; font-size: 26px; font-weight: 800; display: flex; flex-direction: column; gap: 2px; }
   .verdict.row { flex-direction: row; align-items: center; gap: 18px; }
   .verdict.row > span:first-child { flex: none; white-space: nowrap; }
@@ -152,8 +151,11 @@
   .v-bad { background: var(--bad); color: #fff; }
   .v-ok { background: var(--brand); color: #fff; }
   .v-hold { background: var(--hold); color: #fff; }
-  .meter { height: 18px; border-radius: 9px; background: linear-gradient(90deg,#3cb371 0%,#e8b730 45%,#e2572b 70%,#c81e1e 100%); position: relative; }
-  .meter i { position: absolute; top: -8px; width: 6px; height: 34px; background: var(--ink); border-radius: 3px; left: var(--x); transform: translateX(-50%); transition: left 2s ease-out; }
+  .levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .lv { border: 2px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: 14px; color: var(--muted); }
+  .lv b { display: block; font-size: 16px; }
+  .lv.g b { color: var(--brand); } .lv.y b { color: var(--warn); } .lv.r b { color: var(--bad); } .lv.x b { color: var(--ink); }
+  .lv.on { border-color: var(--bad); background: var(--bad-soft); color: var(--bad); }
 
   /* stats */
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -368,29 +370,35 @@ function crc16(str) {
 // fake, unregistered PromptPay number: a real banking app cannot pay it
 const FAKE_QR = (() => { const b = tlv("00", "01") + tlv("01", "12") + tlv("29", tlv("00", "A000000677010111") + tlv("01", "0066000000000")) + tlv("53", "764") + tlv("54", "18000.00") + tlv("58", "TH") + "6304"; return b + crc16(b); })();
 const FAKE_QR_IMG = (() => { const q = qrcode(0, "M"); q.addData(FAKE_QR); q.make(); return q.createDataURL(5, 2); })();
+// bank-signed deal QR, same layout as poc-qr-signing (tag 30 escrow biller, 80 EsKrow+ data, 82 signature);
+// the signature here is a fixed placeholder for display, the live signing is in poc-qr-signing
+const DEAL_QR = (() => { const b = tlv("00", "01") + tlv("01", "12") + tlv("30", tlv("00", "A000000677010112") + tlv("01", "099400000000001") + tlv("02", DEAL.id) + tlv("03", "ESKROW")) + tlv("53", "764") + tlv("54", "18000.00") + tlv("58", "TH") + tlv("80", tlv("00", "TH.ESKROW") + tlv("01", "bank-2026-01") + tlv("02", BUYER.id)) + tlv("82", tlv("00", "ES256") + tlv("01", "MEUCIQDx7kYb2Qy0cJmVwR3tNf8Lh1pZsAa9Ue4GdKoX6iTnBwIgR2vHc5yJqP8mWfL0sDkE3aZt7UoNb1Xg9QhCeYr4Vjk")) + "6304"; return b + crc16(b); })();
+const DEAL_QR_IMG = (() => { const q = qrcode(0, "M"); q.addData(DEAL_QR); q.make(); return q.createDataURL(3, 2); })();
 
 // ================= steps =================
+// internal signals stay inside the bank; Ploy only sees the category (no score, no thresholds)
 const RISK = [
-  ["Account opened 9 days ago", "New accounts are a top mule signal", 20],
-  ["47 incoming transfers from 31 different people", "In the last 7 days", 22],
-  ["94% of money moved out within 10 minutes", "Pass-through pattern typical of mule accounts", 24],
-  ["3 scam reports from other buyers", "This week", 12],
-  ["Device linked to 2 accounts in the fraud registry", "Central Fraud Registry check (simulated)", 8],
+  ["Account opened 9 days ago", "New accounts are a top mule signal", "New account"],
+  ["47 incoming transfers from 31 different people", "In the last 7 days", "Money flow"],
+  ["94% of money moved out within 10 minutes", "Pass-through pattern typical of mule accounts", "Money flow"],
+  ["3 scam reports from other buyers", "This week", "Reports"],
+  ["Device linked to 2 accounts in the fraud registry", "Central Fraud Registry check (simulated)", "Fraud registry"],
 ];
-const TRACK = [
-  [true, "Tracking number exists", "Flash Express API (simulated) · TH2410887351"],
-  [false, "Created after the deal", "Created 11 Oct 15:20, two days before the deal"],
-  [false, "Going to the buyer's address", "Destination Chiang Mai 50200, buyer is in Bangkok 10500"],
-  [false, "Recipient matches the buyer", "Recipient “S*** K.”, not Ploy S."],
-  [false, "Not used in other deals", "Same number submitted in 4 other EsKrow+ deals"],
+// what Ploy sees when she looks the shipment ID up in the carrier's own app (no carrier integration in EsKrow+)
+const SHIP = [
+  [true, "Shipment ID exists", "Flash Express TH2410887351 · looked up in the carrier's app"],
+  [false, "Recipient: S*** K.", "Her contract says Ploy S."],
+  [false, "Destination: Chiang Mai 50200", "Her contract says Bang Rak, Bangkok 10500"],
+  [false, "Created 11 Oct 15:20", "Two days before the deal was made"],
 ];
+const CASE = "AOC-2610-5531";
 const WALLS = [
   ["Zero-Trust", "Every request is checked: who, which device, when. Being on the bank's network earns no trust.",
     [[true, "Identity: password + hardware key"], [false, "Device: unmanaged laptop, never seen"], [false, "Time: 02:14, outside his shift"]]],
   ["RBAC", "Role-based access: staff get only the permissions their job needs.",
     [[false, "Operations Officers can view deals, not release money"]]],
   ["Policy", "Rules on the deal itself, no matter who is asking.",
-    [[false, "Tracking FAILED and refund pending: release forbidden"]]],
+    [[false, "Deal disputed and reported to AOC 1441: release forbidden"]]],
   ["Dual Approval", "Moving escrow money needs two other people, from Risk and Compliance.",
     [[false, "0 of 2 approvals. You can't approve your own request"]]],
 ];
@@ -399,52 +407,55 @@ const STEPS = [
   { beat: 1, title: "A deal too good to be true", sub: "Ploy finds a cheap iPhone on social media", t: T(13, 19, 40), phone: "social", focus: "hook",
     note: "<b>Say:</b> “THB 63 billion lost to online crime in two years. This is how it usually starts: a great price, and ‘transfer first’.”",
     apply: async s => {} },
-  { beat: 2, title: "Create a protected deal", sub: "Ploy doesn't transfer to a stranger. She opens EsKrow+ in K PLUS", t: T(13, 19, 42), phone: "deal", focus: "deal",
-    note: "<b>Say:</b> “Instead of transferring, Ploy pastes the seller's account into EsKrow+. Everything is filled in for her.” <b>Then tap</b> “Check seller”.",
-    apply: async s => { await log(s, "buyer:" + BUYER.id, "DEAL_REQUESTED", `${DEAL.id} · ${DEAL.seller} · ${thb(DEAL.amount)}`); } },
-  { beat: 3, title: "Risk check", sub: "Behavioral Risk Signal, from the bank's own transaction data", t: T(13, 19, 42), phone: "risk", focus: "risk",
-    note: "<b>Say:</b> “The bank sees what the seller can't fake: how old the account is, and how money flows through it. 86 out of 100: high risk.” <b>Point:</b> a scammer can edit a profile, not bank data.",
-    apply: async s => { await log(s, "risk-engine", "RISK_SCORED", "seller xxx-4417 · 86/100 · HIGH"); } },
-  { beat: 4, title: "Escrow contract", sub: "Ploy continues anyway. Now the money is protected by law", t: T(13, 19, 43), phone: "contract", focus: "contract",
-    note: "<b>Say:</b> “Even if she ignores the warning, she's protected. This is a real escrow contract under the Escrow Act B.E. 2551. The bank is the escrow agent.”",
-    apply: async s => { await log(s, "buyer:" + BUYER.id, "WARNING_ACKNOWLEDGED", "continued with EsKrow+ protection"); await log(s, "escrow-svc", "CONTRACT_SIGNED", "buyer + seller + bank as escrow agent"); } },
-  { beat: 4, title: "The seller sends a fake QR", sub: "A trick to skip escrow: an ordinary transfer QR", t: T(13, 19, 44), phone: "fakeqr", focus: "qr",
-    note: "<b>Say:</b> “A smart scammer sends their own QR: ‘pay here, it's faster’. K PLUS checks for the bank's digital signature. No signature, no payment.” (Live proof: poc-qr-signing)",
-    apply: async s => { await log(s, "kplus-app", "QR_REJECTED", "no bank signature · ordinary PromptPay transfer"); } },
+  { beat: 2, title: "The seller sends a QR", sub: "“Just transfer here, it's faster”: an ordinary QR with no protection", t: T(13, 19, 41), phone: "fakeqr", focus: "qr",
+    note: "<b>Say:</b> “Ploy asks how to pay. The seller sends an ordinary PromptPay QR. The app checks for the bank's signature before paying: none. This would go straight to the seller, with no protection.” <b>Then tap</b> “Ask for an EsKrow+ deal”.",
+    apply: async s => { await log(s, "kplus-app", "QR_WARNING", "no bank signature · ordinary transfer"); } },
+  { beat: 2, title: "A bank-signed deal", sub: "The seller creates an EsKrow+ deal. The bank signs its QR", t: T(13, 19, 43), phone: "deal", focus: "deal",
+    note: "<b>Say:</b> “A seller who refuses a protected deal gives himself away, so this one plays along. He creates a deal for Ploy: item, price, her name and address. The bank signs it, and Ploy's app verifies the signature before showing anything.” (Live proof: poc-qr-signing) <b>Then tap</b> “Check seller”.",
+    apply: async s => { await log(s, "seller:" + DEAL.seller, "DEAL_CREATED", `${DEAL.id} · for ${BUYER.name} · seller check ✓`); await log(s, "kplus-app", "QR_VERIFIED", "bank signature ✓ · issued for Ploy"); await log(s, "risk-engine", "BUYER_CHECK", "pass · not shown to seller"); } },
+  { beat: 3, title: "Risk check", sub: "Behavioral Risk Signal, from the bank's own transaction data", t: T(13, 19, 43), phone: "risk", focus: "risk",
+    note: "<b>Say:</b> “The bank sees what the seller can't fake: how old the account is, and how money flows through it. Red: high risk. Ploy sees the reasons, not the score, so scammers can't tune around it. The big button says don't pay yet.” <b>Point:</b> a green seller is paid instantly. A red seller means the money must go through escrow.",
+    apply: async s => { await log(s, "risk-engine", "RISK_RATED", "seller xxx-4417 · RED · escrow required"); } },
+  { beat: 4, title: "Escrow contract", sub: "Ploy pays anyway. Now the money is protected by law", t: T(13, 19, 44), phone: "contract", focus: "contract",
+    note: "<b>Say:</b> “Even if she ignores the warning, she's protected. This deal has its own contract under the Escrow Act B.E. 2551, signed by the seller, by Ploy with a face scan, and by the bank as the escrow agent. The seller has 72 hours to ship.”",
+    apply: async s => { await log(s, "buyer:" + BUYER.id, "WARNING_ACKNOWLEDGED", "paid anyway · escrow required"); await log(s, "escrow-svc", "CONTRACT_SIGNED", "seller + buyer (face) + bank"); } },
   { beat: 4, title: "Money held in escrow", sub: "Paid to the bank, not to the seller", t: T(13, 19, 45), phone: "held", focus: "held", flash: ["buyer", "escrow"],
-    note: "<b>Say:</b> “Ploy pays inside EsKrow+. The money sits in a segregated escrow account. By law it's safe even if the bank itself fails.”",
+    note: "<b>Say:</b> “Ploy pays into escrow. The money sits in a segregated escrow account. By law it's safe even if the bank itself fails.”",
     apply: async s => { s.led.buyer -= DEAL.amount; s.led.escrow += DEAL.amount; s.led.status = "held"; await log(s, "escrow-svc", "FUNDS_HELD", `${thb(DEAL.amount)} in segregated escrow account`); } },
-  { beat: 5, title: "Fake tracking", sub: "The seller claims they shipped. EsKrow+ checks with the carrier", t: T(14, 10, 12), phone: "trackfail", focus: "tracking",
-    note: "<b>Say:</b> “Next morning the seller sends a shipment ID. Before Ploy is ever asked to confirm, the bank checks it with the carrier. It's real, but it was created before the deal, it's going to Chiang Mai, and it's been used in four other deals. It never reaches Ploy.” <b>This is the main moment.</b> <b>Point:</b> only a shipment that passes these checks goes to Ploy for one-tap confirmation, and her tap is what pays the seller.",
-    apply: async s => { await log(s, "seller:" + DEAL.seller, "SHIPMENT_CLAIMED", "Flash Express TH2410887351"); await log(s, "verify-svc", "TRACKING_FAILED", "created before deal · wrong province · reused ×4"); await log(s, "policy-engine", "RELEASE_BLOCKED", "not verified · not sent to buyer"); } },
-  { beat: 5, title: "Deadline passes", sub: "The contract decides. No phone calls, no arguing", t: T(16, 19, 45), phone: "refundpending", focus: "deadline", flash: ["escrow"],
-    note: "<b>Say:</b> “72 hours, no valid shipment. The rule Ploy and the seller signed says: refund. Nobody has to make a judgement call.” <b>If asked</b> “What if the scammer says ‘I did ship’?”: “They had 72 hours to send a shipment ID the carrier confirms, and they were told on Wednesday that theirs failed. After the deadline the contract says refund. Section 23 of the Escrow Act lets the contract set that rule, so arguing alone can't freeze the money.”",
-    apply: async s => { s.led.status = "pend"; await log(s, "escrow-svc", "REFUND_SCHEDULED", "no verified shipment ID in 72 h · settles 09:00"); } },
-  { beat: 6, title: "The rogue admin", sub: "The scammer can't beat the system from outside, so they try from inside the bank", t: T(17, 1, 50), phone: "refundpending", focus: "insider", dim: true,
+  { beat: 5, title: "Fake shipment", sub: "The seller sends a shipment ID. Ploy checks it before she confirms", t: T(14, 10, 15), phone: "checkship", focus: "checkship",
+    note: "<b>Say:</b> “Next morning the seller sends a shipment ID. Ploy's money moves only when she taps Confirm, so she looks the number up in the carrier's app. It's a real parcel, but it's going to Chiang Mai, to someone else, and it was sent two days before she even ordered.” <b>This is the main moment.</b> <b>Point:</b> the bank doesn't call the carrier. The contract shows Ploy exactly what to compare, and the decision to pay stays in her hands. <b>Then tap</b> “Report a problem”.",
+    apply: async s => { await log(s, "seller:" + DEAL.seller, "SHIPMENT_ID_SENT", "Flash Express TH2410887351"); await log(s, "escrow-svc", "BUYER_NOTIFIED", "check and confirm, or report · 48 h"); } },
+  { beat: 5, title: "Ploy reports", sub: "One tap. The money stays held, and the bank doesn't take sides", t: T(14, 10, 20), phone: "reported", focus: "dispute", flash: ["escrow"],
+    note: "<b>Say:</b> “Ploy taps Report, picks a reason and attaches a screenshot of the tracking page. The money stays in escrow. The bank doesn't judge who's right: the two sides can settle in the app, by cancelling, a partial refund or reshipping. If they can't, the evidence goes to the authorities.”",
+    apply: async s => { s.led.status = "disp"; await log(s, "buyer:" + BUYER.id, "DEAL_REPORTED", "wrong recipient and address · screenshot"); await log(s, "escrow-svc", "DISPUTE_OPENED", "funds held · settlement offered"); } },
+  { beat: 5, title: "Evidence to the authorities", sub: "The seller refuses to settle. The case goes to AOC 1441", t: T(16, 10, 20), phone: "evidence", focus: "evidence",
+    note: "<b>Say:</b> “The seller won't cancel. So the bank sends an Evidence Pack to AOC 1441: the signed contract, the seller's risk rating, the shipment ID, Ploy's screenshot, and an audit log nobody can edit. The money stays frozen until the authorities decide.” <b>If asked</b> “What if the seller really shipped?”: “Then he settles, or he shows the authorities his proof. The bank never has to decide.”",
+    apply: async s => { await log(s, "seller:" + DEAL.seller, "SETTLEMENT_DECLINED", "refuses to cancel"); await log(s, "case-svc", "EVIDENCE_PACK_SENT", `AOC 1441 · case ${CASE}`); } },
+  { beat: 6, title: "The rogue admin", sub: "The scammer can't beat the system from outside, so they try from inside the bank", t: T(17, 1, 50), phone: "evidence", focus: "insider", dim: true,
     note: "<b>Say:</b> “The money is stuck, so the scammer bribes someone inside the bank: an Operations Officer with real access. Most back offices trust staff once they're logged in. EsKrow+ assumes any single account can go bad, or be stolen.”",
     apply: async s => { await log(s, "admin:ops.admin07", "ADMIN_LOGIN", "VPN · unmanaged laptop · first seen · flagged"); } },
-  { beat: 6, title: "Force release attempt", sub: "Four independent walls. Any one of them is enough to stop it", t: T(17, 2, 14), phone: "refundpending", focus: "admin", dim: true,
-    note: "<b>Say:</b> “At 2 a.m. he clicks force release. Wall 1, Zero-Trust: wrong device, wrong time. Wall 2, RBAC: his role can't release money at all. Wall 3, Policy: this deal's tracking failed, so nobody can release it. Wall 4, Dual Approval: it needs two people from other teams. All four say no.”",
+  { beat: 6, title: "Force release attempt", sub: "Four independent walls. Any one of them is enough to stop it", t: T(17, 2, 14), phone: "evidence", focus: "admin", dim: true,
+    note: "<b>Say:</b> “At 2 a.m. he clicks force release. Wall 1, Zero-Trust: wrong device, wrong time. Wall 2, RBAC: his role can't release money at all. Wall 3, Policy: this deal is in dispute and with the authorities, so nobody can release it. Wall 4, Dual Approval: it needs two people from other teams. All four say no.”",
     apply: async s => { await log(s, "admin:ops.admin07", "FORCE_RELEASE_REQUESTED", `${thb(DEAL.amount)} → seller`); await log(s, "policy-engine", "REQUEST_DENIED", "zero-trust · rbac · policy · 0/2 approvals"); await log(s, "secops", "SECURITY_ALERT", "SA-0193 · SecOps paged"); } },
-  { beat: 6, title: "Even with an accomplice", sub: "A colleague approves the request. It still doesn't work", t: T(17, 2, 15), phone: "refundpending", focus: "accomplice", dim: true,
-    note: "<b>Say:</b> “So he gets a friend to approve it. The approval doesn't count: approvers must come from Risk or Compliance, never the requester's own team. And even with two real approvals, the policy still says no while tracking has failed. Rules beat signatures.”",
-    apply: async s => { await log(s, "admin:ops.admin12", "APPROVAL_SUBMITTED", `approves force release of ${DEAL.id}`); await log(s, "policy-engine", "APPROVAL_REJECTED", "approver in same team · not Risk/Compliance"); await log(s, "policy-engine", "RELEASE_STILL_BLOCKED", "policy: tracking FAILED overrides approvals"); } },
-  { beat: 6, title: "Covering the tracks", sub: "The admin edits the audit log directly in the database", t: T(17, 2, 16), phone: "refundpending", focus: "tamper", dim: true,
-    note: "<b>Say:</b> “Last try: change the log so it says tracking was OK. Every entry is chained to the one before with SHA-256. One changed word, and the chain breaks.” These hashes are computed live in the page.",
+  { beat: 6, title: "Even with an accomplice", sub: "A colleague approves the request. It still doesn't work", t: T(17, 2, 15), phone: "evidence", focus: "accomplice", dim: true,
+    note: "<b>Say:</b> “So he gets a friend to approve it. The approval doesn't count: approvers must come from Risk or Compliance, never the requester's own team. And even with two real approvals, the policy still says no while the deal is in dispute. Rules beat signatures.”",
+    apply: async s => { await log(s, "admin:ops.admin12", "APPROVAL_SUBMITTED", `approves force release of ${DEAL.id}`); await log(s, "policy-engine", "APPROVAL_REJECTED", "approver in same team · not Risk/Compliance"); await log(s, "policy-engine", "RELEASE_STILL_BLOCKED", "policy: open dispute overrides approvals"); } },
+  { beat: 6, title: "Covering the tracks", sub: "The admin edits the audit log directly in the database", t: T(17, 2, 16), phone: "evidence", focus: "tamper", dim: true,
+    note: "<b>Say:</b> “Last try: change the log so it says Ploy confirmed the shipment. Every entry is chained to the one before with SHA-256. One changed word, and the chain breaks.” These hashes are computed live in the page.",
     apply: async s => {
-      const e = s.audit.find(x => x.action === "TRACKING_FAILED");
+      const e = s.audit.find(x => x.action === "DEAL_REPORTED");
       s.tamper = { seq: e.seq, before: { action: e.action, detail: e.detail }, stored: e.hash };
-      e.action = "TRACKING_OK"; e.detail = "verified · delivered";
+      e.action = "BUYER_CONFIRMED"; e.detail = "shipment OK · release to seller";
       s.tamper.recomputed = await sha(entryText(e));
       s.tamper.next = s.audit[e.seq].prev;
       await log(s, "integrity-monitor", "INTEGRITY_ALERT", `entry #${e.seq} altered · release frozen · secops paged`);
     } },
-  { beat: 6, title: "Caught, with evidence", sub: "The insider never got near the money, and every attempt is on record", t: T(17, 2, 17), phone: "refundpending", focus: "response", dim: true,
+  { beat: 6, title: "Caught, with evidence", sub: "The insider never got near the money, and every attempt is on record", t: T(17, 2, 17), phone: "evidence", focus: "response", dim: true,
     note: "<b>Say:</b> “Three minutes after the first attempt, both accounts are locked and an investigation is open. The log proves what happened, and that the one edit was fake. Ploy slept through all of it.”",
     apply: async s => { await log(s, "secops", "ACCOUNTS_LOCKED", "ops.admin07 · ops.admin12"); await log(s, "secops", "INVESTIGATION_OPENED", "case IR-2026-118 · audit chain preserved as evidence"); } },
-  { beat: 7, title: "Refunded", sub: "Scam stopped before it cost Ploy anything", t: T(17, 9, 0), phone: "refunded", focus: "summary", flash: ["buyer", "escrow"],
-    note: "<b>Say:</b> “Nine o'clock: Ploy has her ฿18,000 back. The scammer got nothing, and the insider got caught. That's EsKrow+.”",
-    apply: async s => { s.led.escrow -= DEAL.amount; s.led.buyer += DEAL.amount; s.led.status = "refunded"; await log(s, "escrow-svc", "REFUND_ISSUED", `${thb(DEAL.amount)} → ${BUYER.name} · paying account`); } },
+  { beat: 7, title: "Refunded", sub: "Scam stopped before it cost Ploy anything", t: T(20, 14, 0), phone: "refunded", focus: "summary", flash: ["buyer", "escrow"],
+    note: "<b>Say:</b> “Tuesday: the authorities rule on the AOC case, and Ploy has her ฿18,000 back. The money never left escrow. The scammer got nothing, and the insider got caught. That's EsKrow+.”",
+    apply: async s => { await log(s, "case-svc", "AUTHORITY_ORDER", `${CASE} · refund to buyer`); s.led.escrow -= DEAL.amount; s.led.buyer += DEAL.amount; s.led.status = "refunded"; await log(s, "escrow-svc", "REFUND_ISSUED", `${thb(DEAL.amount)} → ${BUYER.name} · paying account`); } },
 ];
 
 // ================= phone screens =================
@@ -461,93 +472,117 @@ const PHONE = {
     <div class="caption"><b>${DEAL.seller}</b> iPhone 15 128GB มือหนึ่ง ประกันศูนย์ไทย 🔥 เหลือ 18,000 บาทเท่านั้น! โอนก่อน ส่งไวภายในวันนี้ 🚚 ทักแชทเลย
       <small>“Brand new, Thai warranty. Only ฿18,000! Transfer first, ships today. DM now.”</small></div>
     <div class="comment">ploy.s · สนใจค่ะ ทักไปแล้วนะคะ</div>
-    <div class="pbody" style="justify-content:flex-end"><button class="pbtn tap" data-next style="--d:.6s">Buy safely with EsKrow+</button></div>`,
+    <div class="pbody" style="justify-content:flex-end"><button class="pbtn tap" data-next style="--d:.6s">Chat with seller</button></div>`,
 
-  deal: () => `${EK("New protected deal")}
+  fakeqr: () => `${head("Scan", "Bank app · QR payment")}
     <div class="pbody">
-      <div class="pcard in fields">
-        <div class="field">Seller<b>${DEAL.seller}</b></div>
-        <div class="field">Seller account<b>PromptPay ${DEAL.acct}</b></div>
-        <div class="field">Item<b>${DEAL.item}</b></div>
-        <div class="field">Price<b>${thb(DEAL.amount)}</b></div>
-        <div class="field">Deliver to<b>Ploy S. · Bang Rak, Bangkok 10500</b></div>
-      </div>
-      <div class="alert a-hold in" style="--d:.2s"><p>🔒 Your money goes to the bank, and reaches the seller only after you confirm a verified shipment.</p></div>
+      <div class="chat in"><div class="who">${DEAL.seller}</div>
+        <div class="bubble">โอนเข้าบัญชีนี้ได้เลยค่า เร็วกว่า 🙏<br><small style="color:var(--muted)">“Just transfer here, it's faster”</small><img src="${FAKE_QR_IMG}" alt="Seller's QR code"></div></div>
+      <div class="alert a-bad popin" style="--d:.9s"><h3>⚠ Not a protected deal</h3>
+        <p>This QR has <b>no bank signature</b>. It's an ordinary transfer straight to the seller. If the item never arrives, your money is gone.</p></div>
       <div class="spacer"></div>
-      <button class="pbtn tap" data-next style="--d:.4s">Check seller &amp; create deal</button>
+      <button class="pbtn tap" data-next style="--d:1.3s">Ask for an EsKrow+ deal</button>
+      <button class="pbtn ghost in" data-noop style="--d:1.4s">Pay ${thb(DEAL.amount)} anyway</button>
+    </div>`,
+
+  deal: () => `${EK("Deal QR verified")}
+    <div class="pbody">
+      <div class="chat in"><div class="who">${DEAL.seller}</div>
+        <div class="bubble" style="align-self:flex-end;border-radius:16px 16px 4px 16px;background:var(--brand-soft)">ขอเป็นดีล EsKrow+ นะคะ <small style="color:var(--muted)">“EsKrow+ deal, please”</small></div>
+        <div class="bubble">ได้ค่า สร้างให้แล้ว ✅<img src="${DEAL_QR_IMG}" alt="EsKrow+ deal QR" style="width:120px;height:120px"></div></div>
+      <div class="alert a-ok popin" style="--d:.7s"><h3>✓ Genuine EsKrow+ deal</h3><p>Signed by the bank, issued for you</p></div>
+      ${dealHeader.replace('pcard in"', 'pcard in" style="--d:.9s"')}
+      <div class="pcard in fields" style="--d:1s"><div class="field">Ship to<b>Ploy S. · Bang Rak, Bangkok 10500</b></div></div>
+      <div class="spacer"></div>
+      <button class="pbtn tap" data-next style="--d:1.2s">Check seller</button>
     </div>`,
 
   risk: () => `${EK("Seller check")}
     <div class="pbody">
       <div class="checking"><div class="spinner"></div>Checking seller…</div>
       <div class="alert a-bad popin" style="--d:2.5s">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start"><h3>⚠ High-risk seller</h3><span class="score">86</span></div>
-        <p>We recommend you don't buy from this seller.</p>
-        <ul><li>Account opened 9 days ago</li><li>Money moves out within minutes</li><li>3 scam reports this week</li></ul>
+        <h3>⚠ High risk</h3>
+        <p>We recommend you don't pay this seller yet.</p>
+        <ul><li>New account</li><li>Unusual money flow</li><li>Reported by other buyers</li></ul>
       </div>
-      <div class="alert a-hold in" style="--d:2.9s"><p>If you continue, the bank holds your money. The seller can't touch it until you confirm a verified shipment.</p></div>
+      <div class="pcard in fields" style="--d:2.7s">
+        <div class="field">Seller, verified by the bank<b>Mr. T*** W*** · PromptPay ${DEAL.acct}</b></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field">Account age<b>Under 1 month</b></div><div class="field">Completed deals<b>0</b></div></div>
+      </div>
+      <div class="alert a-hold in" style="--d:2.9s"><p>If you pay, the bank holds your money in escrow. The seller gets it only after you confirm a verified shipment.</p></div>
       <div class="spacer"></div>
-      <button class="pbtn redline in" data-noop style="--d:3s">Cancel deal (recommended)</button>
-      <button class="pbtn tap" data-next style="--d:3.1s">Continue with protection</button>
+      <button class="pbtn in" data-noop style="--d:3s;background:var(--bad);border-color:var(--bad)">Don't pay yet</button>
+      <button class="pbtn ghost tap" data-next id="payAnyway" style="--d:3.1s">Pay anyway, held in escrow</button>
     </div>`,
 
-  contract: () => `${EK("Protected deal created")}
+  contract: () => `${EK("Escrow contract")}
     <div class="pbody">
       ${dealHeader}
       <div class="pcard in fields" style="--d:.15s">
-        <div class="field">Release<b>When you confirm the shipment the bank verified</b></div>
-        <div class="field">If the seller doesn't ship<b>Full refund after 72 hours</b></div>
-        <div class="field">If the shipment looks wrong<b>Report it · your money stays held</b></div>
-        <div class="field">Signed<b>✓ You (K PLUS PIN) · ✓ Seller · ✓ Bank</b></div>
+        <div class="field">Ship to<b>Ploy S. · Bang Rak, Bangkok 10500</b></div>
+        <div class="field">Seller must ship within<b>72 hours · sends you a shipment ID</b></div>
+        <div class="field">Release<b>When you check the shipment and confirm, or 48 h with no reply</b></div>
+        <div class="field">No shipment ID in 72 h<b>Contract expires · full refund</b></div>
+        <div class="field">Something looks wrong<b>Tap Report · your money stays held</b></div>
+        <div class="field">Signed<b>✓ Seller · ✓ You (face scan) · ✓ Bank</b></div>
       </div>
-      <div class="alert a-warn in" style="--d:.3s"><p><b>Waiting for payment.</b> Pay only through EsKrow+.</p></div>
       <div class="spacer"></div>
-      <div class="notif in" style="--d:.8s"><span class="ic">💬</span><span><b>${DEAL.seller}</b>sent you a payment QR</span></div>
-      <button class="pbtn tap" data-next style="--d:.9s">Scan seller's QR</button>
-    </div>`,
-
-  fakeqr: () => `${EK("Scan to pay")}
-    <div class="pbody">
-      <div class="chat in"><div class="who">${DEAL.seller}</div>
-        <div class="bubble">โอนเข้าบัญชีนี้ได้เลยค่า เร็วกว่า 🙏<br><small style="color:var(--muted)">“Just transfer here, it's faster”</small><img src="${FAKE_QR_IMG}" alt="Seller's QR code"></div></div>
-      <div class="alert a-bad popin" style="--d:.9s"><h3>✗ QR blocked</h3>
-        <p>This is <b>not an EsKrow+ QR</b>. It has no bank signature. It's an ordinary transfer straight to the seller, so your money could not be protected.</p></div>
-      <div class="spacer"></div>
-      <button class="pbtn tap" data-next style="--d:1.3s">Pay ${thb(DEAL.amount)} safely in EsKrow+</button>
+      <button class="pbtn tap" data-next style="--d:.5s">Pay ${thb(DEAL.amount)} into escrow</button>
     </div>`,
 
   held: s => `${EK("Deal " + DEAL.id)}
     <div class="pbody">
       <div class="alert a-hold popin center" style="padding:22px"><div style="font-size:40px">🔒</div><div class="big-money">${thb(DEAL.amount)}</div><p>held by the bank in escrow</p></div>
       <div class="pcard in" style="--d:.3s">${tl([
-        ["done", "✓", "Deal created", "13 Oct 19:43"],
+        ["done", "✓", "Contract signed", "13 Oct 19:44"],
         ["hold", "✓", "Paid · held in escrow", "13 Oct 19:45"],
         ["", "3", "Seller sends shipment ID", "Deadline 16 Oct 19:45"],
-        ["", "4", "Bank checks it with the carrier", ""],
-        ["", "5", "You confirm · paid to seller", "Automatic 48 h after a verified ID"]])}</div>
+        ["", "4", "You check it with the carrier", ""],
+        ["", "5", "You confirm · paid to seller", "Or automatic 48 h after the ID"]])}</div>
       <div class="field center in" style="--d:.5s">Balance ${thb(s.led.buyer)}</div>
     </div>`,
 
-  trackfail: () => `${EK("Deal " + DEAL.id)}
+  checkship: () => `${EK("Deal " + DEAL.id)}
     <div class="pbody">
-      <div class="notif popin"><span class="ic">!</span><span><b>EsKrow+</b>The seller's tracking failed verification</span></div>
-      <div class="pcard in" style="--d:.3s">${tl([
-        ["done", "✓", "Deal created", "13 Oct 19:43"],
-        ["hold", "✓", "Paid · held in escrow", "13 Oct 19:45"],
-        ["done", "✓", "Seller sent shipment ID", "Flash Express TH2410887351"],
-        ["fail", "✗", "Bank check failed", "Not sent to you to confirm"],
-        ["", "5", "You confirm · paid to seller", ""]])}</div>
-      <div class="alert a-hold in" style="--d:.6s"><h3>Your ${thb(DEAL.amount)} is safe</h3><p>The seller has until 16 Oct 19:45 to send a shipment ID that passes the check. Otherwise you get a full refund.</p></div>
+      <div class="notif popin"><span class="ic">📦</span><span><b>Seller sent a shipment ID</b>Check it with the carrier, then confirm</span></div>
+      <div class="pcard in fields" style="--d:.3s">
+        <div class="field">Your contract says<b>Ploy S. · Bang Rak, Bangkok 10500</b></div>
+      </div>
+      <div class="pcard in" style="--d:.5s;border-color:var(--bad)">
+        <div class="field" style="font-weight:700">Flash Express app · TH2410887351</div>
+        <div class="fields" style="margin-top:8px">
+          <div class="field">Recipient<b style="color:var(--bad)">S*** K.</b></div>
+          <div class="field">Destination<b style="color:var(--bad)">Chiang Mai 50200</b></div>
+          <div class="field">Created<b style="color:var(--bad)">11 Oct 15:20</b></div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <button class="pbtn ghost in" data-noop="For the demo, Ploy reports instead" style="--d:.8s">Confirm · pay seller ${thb(DEAL.amount)}</button>
+      <button class="pbtn redline tap" data-next style="--d:.9s">Report a problem</button>
     </div>`,
 
-  refundpending: () => `${EK("Deal " + DEAL.id)}
+  reported: () => `${EK("Deal " + DEAL.id)}
+    <div class="pbody">
+      <div class="alert a-hold popin"><h3>🔒 ${thb(DEAL.amount)} stays held</h3><p>Dispute open. The seller can't touch your money.</p></div>
+      <div class="pcard in fields" style="--d:.3s">
+        <div class="field">Reason<b>Wrong recipient and address</b></div>
+        <div class="field">Attached<b>✓ Screenshot of the Flash Express tracking</b></div>
+      </div>
+      <div class="pcard in" style="--d:.5s">${tl([
+        ["done", "✓", "Paid · held in escrow", "13 Oct 19:45"],
+        ["done", "✓", "Seller sent shipment ID", "Flash Express TH2410887351"],
+        ["fail", "!", "You reported a problem", "14 Oct 10:20"],
+        ["", "4", "Settle with the seller", "Cancel · partial refund · reship"]])}</div>
+    </div>`,
+
+  evidence: () => `${EK("Deal " + DEAL.id)}
     <div class="pbody">
       <div class="pcard in">${tl([
-        ["done", "✓", "Deal created", "13 Oct 19:43"],
-        ["hold", "✓", "Paid · held in escrow", "13 Oct 19:45"],
-        ["fail", "✗", "No verified shipment", "Deadline passed 16 Oct 19:45"],
-        ["hold", "↺", "Refund approved", "Contract rule · settles 17 Oct 09:00"]])}</div>
-      <div class="alert a-ok in" style="--d:.3s"><h3>Refund on the way</h3><p>${thb(DEAL.amount)} returns to your account at 09:00 tomorrow. You don't need to do anything.</p></div>
+        ["done", "✓", "Paid · held in escrow", "13 Oct 19:45"],
+        ["fail", "!", "You reported a problem", "14 Oct 10:20"],
+        ["fail", "✗", "No settlement", "The seller refused to cancel"],
+        ["hold", "→", "Evidence sent to AOC 1441", `Case ${CASE} · 16 Oct`]])}</div>
+      <div class="alert a-hold in" style="--d:.3s"><h3>Your ${thb(DEAL.amount)} stays held</h3><p>It stays in escrow until the authorities decide. You don't need to do anything.</p></div>
     </div>`,
 
   refunded: s => `${EK("Deal " + DEAL.id)}
@@ -556,7 +591,8 @@ const PHONE = {
       <div class="alert a-ok popin center" style="--d:.3s;padding:26px"><div style="font-size:54px;line-height:1">✓</div><div class="big-money">${thb(DEAL.amount)}</div><p>refunded to your account</p></div>
       <div class="pcard in fields" style="--d:.6s">
         <div class="field">Balance<b>${thb(s.led.buyer)}</b></div>
-        <div class="field">Seller ${DEAL.seller}<b>Reported to the bank's fraud team</b></div>
+        <div class="field">Refund ordered by the authorities<b>AOC 1441 case ${CASE}</b></div>
+        <div class="field">Seller ${DEAL.seller}<b>Reported to the police, with evidence</b></div>
       </div>
       <div class="spacer"></div>
       <div class="field center in" style="--d:.8s">Thanks for buying safely with EsKrow+</div>
@@ -574,43 +610,10 @@ const FOCUS = {
       <div class="stat in" style="--d:.5s"><b>1.8 m</b><span>accounts suspended through the BOT Central Fraud Registry</span></div>
     </div>
     <p class="in" style="--d:.8s">On social commerce, buyers usually <b>transfer first</b> to someone they have never met, and hope the parcel arrives.</p>
-    <div class="foot in" style="--d:1s">EsKrow+ puts the bank in the middle: <b>Create deal → Risk check → Escrow → Verify tracking → Buyer confirms → Release</b></div>`,
-
-  deal: () => `
-    <h2 class="in">Deal request received<small>EsKrow+ engine</small></h2>
-    <div class="kvt in" style="--d:.15s">
-      <div>Deal ID</div><div class="mono">${DEAL.id}</div>
-      <div>Buyer</div><div>${BUYER.name} · verified by K PLUS login ✓</div>
-      <div>Seller</div><div>${DEAL.seller} · PromptPay ${DEAL.acct}</div>
-      <div>Item</div><div>${DEAL.item}</div>
-      <div>Amount</div><div><b>${thb(DEAL.amount)}</b></div>
-      <div>Delivery</div><div>Bang Rak, Bangkok 10500</div>
-    </div>
-    <div class="foot in" style="--d:.4s">Next: before any money moves, the bank checks who is really behind the seller's account.</div>`,
-
-  risk: () => `
-    <h2 class="in">Behavioral Risk Signal<small>Seller account PromptPay ${DEAL.acct}</small></h2>
-    <div class="checks">${RISK.map(([t, s, p], i) => chk(false, t, s, `<span class="pts">+${p}</span>`, .3 + i * .4)).join("")}</div>
-    <div class="in" style="--d:2.3s"><div class="meter"><i id="needle" style="--x:${anim ? 0 : 86}%"></i></div>
-      <div style="display:flex;justify-content:space-between;font-size:15px;color:var(--muted);margin-top:6px"><span>0 · low</span><span>70 · high</span><span>100</span></div></div>
-    <div class="verdict row v-bad popin" style="--d:2.4s"><span style="font-size:52px;line-height:1" id="scoreNum">${anim ? 0 : 86}</span><span>/ 100 · HIGH RISK<small>Buyer warned before paying</small></span></div>
-    <div class="foot in" style="--d:2.6s">A scammer can fake a profile, reviews and photos. They can't fake how money moves through their bank account.</div>`,
-
-  contract: () => `
-    <h2 class="in">Escrow contract<small>Escrow Act B.E. 2551 (พ.ร.บ.การดูแลผลประโยชน์ของคู่สัญญา)</small></h2>
-    <div class="kvt in" style="--d:.15s">
-      <div>Parties</div><div>${BUYER.name} (buyer) · ${DEAL.seller} (seller)</div>
-      <div>Escrow agent</div><div>The bank, licensed by the Minister of Finance <span class="law">s.9</span></div>
-      <div>Release rule</div><div>Buyer confirms a bank-verified shipment ID, or 48 h pass with no reply <span class="law">s.6(5)</span></div>
-      <div>Refund rule</div><div>No verified shipment ID within 72 hours → refund to the paying account</div>
-      <div>Buyer report</div><div>Money stays held. Carrier records decide <span class="law">s.23</span></div>
-      <div>Other disputes</div><div>Funds frozen until agreed or ruled <span class="law">s.23</span></div>
-      <div>Signatures</div><div>Electronic, all three parties <span class="law">s.6</span></div>
-    </div>
-    <div class="foot in" style="--d:.4s">The rules are agreed before any money moves, so no one has to make a judgement call later.</div>`,
+    <div class="foot in" style="--d:1s">EsKrow+ puts the bank in the middle: <b>Deal QR → Risk check → Contract → Escrow → Buyer checks shipment → Confirm → Release</b></div>`,
 
   qr: () => `
-    <h2 class="in">Payment QR check<small>Inside K PLUS, before any payment</small></h2>
+    <h2 class="in">Payment QR check<small>In the bank app, before any payment</small></h2>
     <div style="display:grid;grid-template-columns:1fr 200px;gap:22px;align-items:start">
       <div class="checks">
         ${chk(true, "Readable Thai QR payment code", "EMVCo format", "", .3)}
@@ -619,8 +622,48 @@ const FOCUS = {
       </div>
       <img class="in" style="--d:.1s;width:200px;height:200px;image-rendering:pixelated;border-radius:12px;border:1px solid var(--line)" src="${FAKE_QR_IMG}" alt="Seller's QR code">
     </div>
-    <div class="verdict v-bad popin" style="--d:1.2s">✗ Blocked<span><small>Ordinary PromptPay transfer to the seller · would bypass escrow</small></span></div>
-    <div class="foot in" style="--d:1.4s">Every EsKrow+ QR is signed by the bank's private key (ECDSA P-256). Changing the payee or amount breaks the signature. Live proof of concept: <b>poc-qr-signing</b>.</div>`,
+    <div class="verdict v-bad popin" style="--d:1.2s">⚠ Not protected<span><small>Ordinary PromptPay transfer straight to the seller · no escrow</small></span></div>
+    <div class="foot in" style="--d:1.4s">Only the bank can sign an EsKrow+ deal QR (ECDSA P-256). A seller who won't send one is a warning sign in itself.</div>`,
+
+  deal: () => `
+    <h2 class="in">Bank-signed deal QR<small>The seller creates the deal, the bank signs it, Ploy's app verifies it</small></h2>
+    <div style="display:grid;grid-template-columns:1fr 180px;gap:22px;align-items:start">
+      <div class="kvt in" style="--d:.15s;grid-template-columns:170px 1fr">
+        <div>Deal ID</div><div class="mono">${DEAL.id}</div>
+        <div>Seller</div><div>${DEAL.seller} · not frozen, not on the mule list ✓</div>
+        <div>Item · price</div><div>${DEAL.item} · <b>${thb(DEAL.amount)}</b></div>
+        <div>Buyer</div><div>${BUYER.name} · buyer check pass ✓</div>
+        <div>Ship to</div><div>Bang Rak, Bangkok 10500</div>
+        <div>Signature</div><div>ECDSA P-256 · key bank-2026-01 · verified on Ploy's phone ✓</div>
+      </div>
+      <img class="in" style="--d:.1s;width:180px;height:180px;image-rendering:pixelated;border-radius:12px;border:1px solid var(--line)" src="${DEAL_QR_IMG}" alt="EsKrow+ deal QR">
+    </div>
+    <div class="foot in" style="--d:.4s">Every deal gets a new ID and its own contract: seller, item, price, buyer and shipping address. Change any of it and the signature breaks. The buyer check result is never shown to the seller (PDPA). Live proof: <b>poc-qr-signing</b>.</div>`,
+
+  risk: () => `
+    <h2 class="in">Behavioral Risk Signal<small>Seller account PromptPay ${DEAL.acct} · inside the bank</small></h2>
+    <div class="checks">${RISK.map(([t, s, c], i) => chk(false, t, s, `<span class="cat">${c}</span>`, .3 + i * .4)).join("")}</div>
+    <div class="levels in" style="--d:2.3s">
+      <div class="lv g"><b>Green</b>Paid instantly</div>
+      <div class="lv y"><b>Yellow</b>Escrow if the amount is unusual</div>
+      <div class="lv r on"><b>Red</b>Escrow always</div>
+      <div class="lv x"><b>Prohibited</b>No pay button</div>
+    </div>
+    <div class="verdict row v-bad popin" style="--d:2.4s"><span style="font-size:34px">RED · High risk</span><span><small>Escrow required · Ploy is warned before paying</small></span></div>
+    <div class="foot in" style="--d:2.6s">Ploy sees the categories, never the score or thresholds, so scammers can't tune around them. They can fake a profile, not how money moves through their account.</div>`,
+
+  contract: () => `
+    <h2 class="in">Escrow contract<small>Escrow Act B.E. 2551 (พ.ร.บ.การดูแลผลประโยชน์ของคู่สัญญา) · one contract per deal</small></h2>
+    <div class="kvt in" style="--d:.15s">
+      <div>Parties</div><div>${DEAL.seller} · ${BUYER.name} · the bank as escrow agent <span class="law">s.9</span></div>
+      <div>Shipping rule</div><div>Seller ships and sends a shipment ID within 72 h. The buyer checks the shipment details herself</div>
+      <div>Release rule</div><div>Buyer confirms the shipment, or 48 h pass with no reply <span class="law">s.6(5)</span></div>
+      <div>Expiry rule</div><div>No shipment ID in 72 h → contract expires, refund to the paying account</div>
+      <div>Buyer report</div><div>Money held. The two sides settle, or the Evidence Pack goes to AOC 1441 / police</div>
+      <div>No agreement</div><div>Funds frozen until an authority order or a court ruling <span class="law">s.23</span></div>
+      <div>Signatures</div><div>Electronic, all three parties · buyer by face scan <span class="law">s.6</span></div>
+    </div>
+    <div class="foot in" style="--d:.4s">The rules are agreed before any money moves, so the bank never has to judge who is right.</div>`,
 
   held: () => `
     <h2 class="in">Money held in escrow</h2>
@@ -635,19 +678,36 @@ const FOCUS = {
       <li>Moves only by the contract's rules, directly to the entitled party <span class="law">s.20</span></li>
     </ul>`,
 
-  tracking: () => `
-    <h2 class="in">Tracking verification<small>Seller submitted Flash Express TH2410887351</small></h2>
-    <div class="checks">${TRACK.map(([ok, t, s], i) => chk(ok, t, s, "", .3 + i * .45)).join("")}</div>
-    <div class="verdict v-bad popin" style="--d:2.7s">✗ Fake shipment claim<span><small>Never sent to Ploy to confirm · seller flagged</small></span></div>`,
+  checkship: () => `
+    <h2 class="in">Ploy checks the shipment herself<small>Seller sent Flash Express TH2410887351 · 14 Oct 10:12</small></h2>
+    <div class="checks">${SHIP.map(([ok, t, s], i) => chk(ok, t, s, "", .3 + i * .45)).join("")}</div>
+    <div class="verdict v-bad popin" style="--d:2.2s">✗ Not her parcel<span><small>Ploy taps Report instead of Confirm · the money stays held</small></span></div>
+    <div class="foot in" style="--d:2.4s">No carrier integration: the contract shows Ploy exactly what to compare, and the decision to pay stays in her hands. 48 h of silence pays the seller, so a real shipment is never stuck.</div>`,
 
-  deadline: () => `
-    <h2 class="in">Contract rule triggered</h2>
-    <div class="flow in" style="--d:.2s;grid-template-columns:1fr 70px 1fr">
-      <div class="node">⏱ 72 hours<b>No verified shipment ID</b></div><div class="arrow">→</div>
-      <div class="node vault">↺ Refund<b>${thb(DEAL.amount)}</b>to Ploy's paying account · 17 Oct 09:00</div>
+  dispute: () => `
+    <h2 class="in">Dispute opened<small>14 Oct 10:20 · the bank doesn't judge who is right</small></h2>
+    <div class="checks">
+      ${chk(true, "Report received", "Reason: wrong recipient and address · tracking screenshot attached", "", .3)}
+      ${chk(null, "1. Settle in the app", "Cancel, partial refund or reship. Agreement ends the dispute", "", .7)}
+      ${chk(null, "2. No agreement → Evidence Pack", "Sent to AOC 1441 / police", "", 1.1)}
+      ${chk(null, "3. Authority order or court ruling", "Decides where the money goes", "", 1.5)}
     </div>
-    <p class="in" style="--d:.5s">The refund comes from the rule both sides signed, not from a staff decision. The seller was told on 14 Oct that the ID failed, and could send a valid one any time before the deadline. Arguing alone can't freeze the money <span class="law">s.23</span></p>
-    <div class="foot in" style="--d:.7s">MVP scope: fake or high-risk sellers, payment with no shipment, fake shipment claims. Product quality and damaged items are out of scope.</div>`,
+    <div class="flow in" style="--d:1.9s;grid-template-columns:1fr 70px 1fr">
+      <div class="node vault">🔒 Escrow account<b>${thb(DEAL.amount)}</b>held the whole time</div><div class="arrow x">✕</div>
+      <div class="node locked">Seller<b>฿0</b></div>
+    </div>
+    <div class="foot in" style="--d:2.1s">Arguing alone can't move the money <span class="law">s.23</span>. Only an agreement, an authority order or a court can.</div>`,
+
+  evidence: () => `
+    <h2 class="in">Evidence Pack sent<small>16 Oct · the seller refused to settle · AOC 1441 case ${CASE}</small></h2>
+    <div class="kvt in" style="--d:.15s">
+      <div>Contract</div><div>Signed by all three parties · its hash is in the audit chain</div>
+      <div>Seller</div><div>PromptPay ${DEAL.acct} · rated RED at payment, with reasons</div>
+      <div>Shipment</div><div>TH2410887351 · Ploy's screenshot of the carrier's tracking page</div>
+      <div>Audit log</div><div>Chain excerpt + signed Merkle root: proves nothing was edited</div>
+      <div>Money</div><div>${thb(DEAL.amount)} held in escrow until the authorities decide</div>
+    </div>
+    <div class="foot in" style="--d:.4s">The bank packages facts it can prove, as a PDF with a QR to verify it. Deciding the case is for the authorities.</div>`,
 
   insider: () => `
     <h2 class="in">The rogue admin<small>01:50 · a real employee with real access</small></h2>
@@ -681,24 +741,24 @@ const FOCUS = {
       ${chk(false, "Approver uses a bank-managed device and hardware key", "Approved from a personal phone", "", .85)}
       ${chk(false, "Two valid approvals", "Still 0 of 2", "", 1.2)}
     </div>
-    <div class="rulebox popin" style="--d:1.6s"><b>Rules beat signatures</b>Even with two valid approvals, the policy check still says no: money can't leave escrow while this deal's tracking has failed. No number of approvals overrides the contract.</div>
+    <div class="rulebox popin" style="--d:1.6s"><b>Rules beat signatures</b>Even with two valid approvals, the policy check still says no: while a deal is in dispute, its money moves only by agreement, an authority order or a court. No number of approvals overrides the contract.</div>
     <div class="foot in" style="--d:1.9s">Separation of duties: the person who asks, the people who approve, and the rules are all independent of each other.</div>`,
 
   tamper: s => {
     const t = s.tamper, a = s.audit, prev = a[t.seq - 2], next = a[t.seq], h = x => x.slice(0, 8) + "…";
     return `
     <h2 class="in">Covering the tracks<small>ops.admin07 skips the app and edits the audit database directly</small></h2>
-    <div class="diffrow in" style="--d:.2s"><span class="field">Entry #${t.seq}</span><span><span class="old mono">${t.before.action}</span> → <span class="new mono">TRACKING_OK</span></span></div>
+    <div class="diffrow in" style="--d:.2s"><span class="field">Entry #${t.seq}</span><span><span class="old mono">${t.before.action}</span> → <span class="new mono">BUYER_CONFIRMED</span></span></div>
     <p class="in" style="--d:.5s;font-size:19px">Each entry stores a SHA-256 fingerprint of <b>its own content plus the previous entry's fingerprint</b>, so the entries link like a chain.</p>
     <div class="chain in" style="--d:.8s">
       <div class="blk"><span class="bn">#${prev.seq}</span><span class="ba">${prev.action}</span><span class="bh">hash ${h(prev.hash)}</span></div>
       <div class="lnk">→</div>
-      <div class="blk bad"><span class="bn">#${t.seq} · edited</span><span class="ba">TRACKING_OK</span><span class="bh">was ${h(t.stored)}<br><b>now ${h(t.recomputed)}</b></span></div>
+      <div class="blk bad"><span class="bn">#${t.seq} · edited</span><span class="ba">BUYER_CONFIRMED</span><span class="bh">was ${h(t.stored)}<br><b>now ${h(t.recomputed)}</b></span></div>
       <div class="lnk bad">✗</div>
       <div class="blk"><span class="bn">#${next.seq}</span><span class="ba">${next.action}</span><span class="bh">expects ${h(next.prev)}</span></div>
     </div>
     <div class="verdict row v-bad popin" style="--d:1.4s"><span style="font-size:34px">✗ Tampering detected</span><span><small>Entry #${t.seq} no longer matches · release frozen</small></span></div>
-    <div class="foot in" style="--d:1.7s">Recomputing #${t.seq}'s fingerprint doesn't help: #${next.seq} still expects the old one. Hashes are computed live in this page. In production the latest fingerprint is also copied to write-once storage outside any admin's reach.</div>`;
+    <div class="foot in" style="--d:1.7s">Recomputing #${t.seq}'s fingerprint doesn't help: #${next.seq} still expects the old one. Hashes are computed live in this page. In production each deal has its own chain, and a Merkle root of all chains is signed by the bank's HSM and kept in write-once (WORM) storage, out of any admin's reach.</div>`;
   },
 
   response: () => `
@@ -709,15 +769,15 @@ const FOCUS = {
         .map(([tm, b, sm], i) => `<li class="in" style="--d:${.2 + i * .3}s"><span class="tm mono">${tm}</span><span><b>${b}</b><small>${sm}</small></span></li>`).join("")}
     </ul>
     <div class="cmp">
-      <div class="side-new in" style="--d:1.8s"><b>Ploy's money</b>Never moved. The refund still settles at 09:00.</div>
+      <div class="side-new in" style="--d:1.8s"><b>Ploy's money</b>Never moved. Still held for the AOC case.</div>
       <div class="side-new in" style="--d:2s"><b>The evidence</b>Every attempt is in the log, and the chain proves the one edit was fake.</div>
     </div>`,
 
   summary: () => `
     <div class="headline in">Ploy lost <em>฿0</em>.<br>The scammer got <em>฿0</em>.</div>
     <div class="tiles">
-      ${[["Warned before paying", "Behavioral Risk Signal"], ["Fake QR blocked", "Bank-signed QR codes"], ["Fake shipment caught", "Tracking verification"],
-         ["Insider stopped", "Zero-Trust · RBAC · Policy · Dual Approval"], ["Cover-up exposed", "Tamper-evident audit log"], ["Refund by contract", "Escrow Act B.E. 2551"]]
+      ${[["Warned before paying", "Behavioral Risk Signal"], ["Unprotected QR flagged", "Bank-signed deal QR"], ["Fake shipment caught", "Ploy checks · one-tap Report"],
+         ["Insider stopped", "Zero-Trust · RBAC · Policy · Dual Approval"], ["Cover-up exposed", "Tamper-evident audit log"], ["Refund by authority order", "Escrow Act · Evidence Pack to AOC 1441"]]
         .map(([b, s2], i) => `<div class="tile in" style="--d:${.3 + i * .15}s"><span class="s">✓</span><b>${b}</b><span>${s2}</span></div>`).join("")}
     </div>
     <div class="foot in" style="--d:1.3s">EsKrow+ · Transaction Protection for K PLUS · Cyber Security &amp; Digital Trust</div>`,
@@ -725,7 +785,7 @@ const FOCUS = {
 
 // ================= ledger + audit rendering =================
 function ledgerHTML(s, flash) {
-  const st = { none: ["No funds", "p-none"], held: ["HELD", "p-held"], pend: ["REFUND PENDING", "p-pend"], refunded: ["REFUNDED", "p-done"] }[s.led.status];
+  const st = { none: ["No funds", "p-none"], held: ["HELD", "p-held"], disp: ["HELD · DISPUTED", "p-pend"], refunded: ["REFUNDED", "p-done"] }[s.led.status];
   const f = k => flash.includes(k) ? "flash" : "";
   return `
     <div class="${f("buyer")}" style="--d:.4s"><span>Ploy's account<small>K PLUS savings</small></span><b>${thb(s.led.buyer)}</b></div>
@@ -778,7 +838,7 @@ async function render(prevCount) {
   $("ledger").innerHTML = ledgerHTML(S, anim ? (st.flash || []) : []);
   await renderAudit(prevCount);
   $("notes").innerHTML = `<b>${st.beat}. ${esc(st.title)}</b> (step ${cur + 1}/${STEPS.length}) · ${st.note}`;
-  if (st.focus === "risk" && anim) countUp(token);
+  if (st.phone === "risk" && anim) countdown(token);
 }
 async function renderAudit(prevCount) {
   const check = await verifyChain(S.audit);
@@ -789,17 +849,17 @@ async function renderAudit(prevCount) {
   cs.textContent = broken ? "✗ CHAIN BROKEN" : "SHA-256 chain ✓";
   const a = $("audit"); a.style.scrollBehavior = "auto"; a.scrollTop = a.scrollHeight;
 }
-function countUp(token) {
-  const start = performance.now() + 2400, dur = 1600;
-  const needle = $("needle"), num = $("scoreNum");
-  setTimeout(() => { if (token === renderToken && needle) needle.style.setProperty("--x", "86%"); }, 2400);
-  const f = now => {
-    if (token !== renderToken || !num) return;
-    const k = Math.min(1, Math.max(0, (now - start) / dur));
-    num.textContent = Math.round(86 * (1 - Math.pow(1 - k, 3)));
-    if (k < 1) requestAnimationFrame(f);
+// red card: "Pay anyway" counts down before it reads as ready (the main button is "Don't pay yet")
+function countdown(token) {
+  const btn = $("payAnyway"), label = btn.textContent;
+  let n = 5;
+  btn.textContent = `Pay anyway (${n})`;
+  const tick = () => {
+    if (token !== renderToken) return;
+    btn.textContent = --n ? `Pay anyway (${n})` : label;
+    if (n) setTimeout(tick, 1000);
   };
-  requestAnimationFrame(f);
+  setTimeout(tick, 4100); // the button appears at 3.1 s showing (5)
 }
 
 // ================= input =================
@@ -826,7 +886,7 @@ document.addEventListener("pointerdown", e => {
 $("screen").addEventListener("click", e => {
   if (e.target.closest("[data-next]")) go(cur + 1);
   else if (e.target.closest("[data-noop]")) {
-    const t = document.createElement("div"); t.className = "toast"; t.textContent = "For the demo, Ploy continues anyway";
+    const t = document.createElement("div"); t.className = "toast"; t.textContent = e.target.closest("[data-noop]").dataset.noop || "For the demo, Ploy continues anyway";
     $("screen").appendChild(t); setTimeout(() => t.remove(), 1600);
   }
 });
