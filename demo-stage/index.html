@@ -328,7 +328,7 @@
 <script>
 "use strict";
 // ================= story data =================
-const DEAL = { id: "EK2610130042", seller: "@iphone.bkk.shop", acct: "xxx-xxx-4417", item: "iPhone 15 128GB Black", amount: 18000 };
+const DEAL = { id: "EK2610130042", seller: "@iphone.bkk.shop", acct: "xxx-xxx-4417", item: "iPhone 15 128GB Black", amount: 20000 };
 const BUYER = { name: "Ploy S.", id: "U-PLOY-0424", balance: 42350 };
 const T = (d, h, m) => new Date(2026, 9, d, h, m).getTime();
 const $ = id => document.getElementById(id);
@@ -370,11 +370,11 @@ function crc16(str) {
   return c.toString(16).toUpperCase().padStart(4, "0");
 }
 // fake, unregistered PromptPay number: a real banking app cannot pay it
-const FAKE_QR = (() => { const b = tlv("00", "01") + tlv("01", "12") + tlv("29", tlv("00", "A000000677010111") + tlv("01", "0066000000000")) + tlv("53", "764") + tlv("54", "18000.00") + tlv("58", "TH") + "6304"; return b + crc16(b); })();
+const FAKE_QR = (() => { const b = tlv("00", "01") + tlv("01", "12") + tlv("29", tlv("00", "A000000677010111") + tlv("01", "0066000000000")) + tlv("53", "764") + tlv("54", "20000.00") + tlv("58", "TH") + "6304"; return b + crc16(b); })();
 const FAKE_QR_IMG = (() => { const q = qrcode(0, "M"); q.addData(FAKE_QR); q.make(); return q.createDataURL(5, 2); })();
 // bank-signed deal QR, same layout as poc-qr-signing (tag 30 escrow biller, 80 EsKrow+ data, 82 signature);
 // the signature here is a fixed placeholder for display, the live signing is in poc-qr-signing
-const DEAL_QR = (() => { const b = tlv("00", "01") + tlv("01", "12") + tlv("30", tlv("00", "A000000677010112") + tlv("01", "099400000000001") + tlv("02", DEAL.id) + tlv("03", "ESKROW")) + tlv("53", "764") + tlv("54", "18000.00") + tlv("58", "TH") + tlv("80", tlv("00", "TH.ESKROW") + tlv("01", "bank-2026-01") + tlv("02", BUYER.id)) + tlv("82", tlv("00", "ES256") + tlv("01", "MEUCIQDx7kYb2Qy0cJmVwR3tNf8Lh1pZsAa9Ue4GdKoX6iTnBwIgR2vHc5yJqP8mWfL0sDkE3aZt7UoNb1Xg9QhCeYr4Vjk")) + "6304"; return b + crc16(b); })();
+const DEAL_QR = (() => { const b = tlv("00", "01") + tlv("01", "12") + tlv("30", tlv("00", "A000000677010112") + tlv("01", "099400000000001") + tlv("02", DEAL.id) + tlv("03", "ESKROW")) + tlv("53", "764") + tlv("54", "20000.00") + tlv("58", "TH") + tlv("80", tlv("00", "TH.ESKROW") + tlv("01", "bank-2026-01") + tlv("02", BUYER.id)) + tlv("82", tlv("00", "ES256") + tlv("01", "MEUCIQDx7kYb2Qy0cJmVwR3tNf8Lh1pZsAa9Ue4GdKoX6iTnBwIgR2vHc5yJqP8mWfL0sDkE3aZt7UoNb1Xg9QhCeYr4Vjk")) + "6304"; return b + crc16(b); })();
 const DEAL_QR_IMG = (() => { const q = qrcode(0, "M"); q.addData(DEAL_QR); q.make(); return q.createDataURL(3, 2); })();
 
 // ================= steps =================
@@ -457,7 +457,7 @@ const STEPS = [
     note: "<b>Say:</b> “Three minutes after the first attempt, both accounts are locked and an investigation is open. The log proves what happened, and that the one edit was fake. Ploy slept through all of it.”",
     apply: async s => { await log(s, "secops", "ACCOUNTS_LOCKED", "ops.admin07 · ops.admin12"); await log(s, "secops", "INVESTIGATION_OPENED", "case IR-2026-118 · audit chain preserved as evidence"); } },
   { beat: 7, title: "Refunded", sub: "Scam stopped before it cost Ploy anything", t: T(20, 14, 0), phone: "refunded", focus: "summary", flash: ["buyer", "escrow"],
-    note: "<b>Say:</b> “Tuesday: the authorities rule on the AOC case, and Ploy has her ฿18,000 back. The money never left escrow. The scammer got nothing, and the insider got caught. That's EsKrow+.”",
+    note: "<b>Say:</b> “Tuesday: the authorities rule on the AOC case, and Ploy has her ฿20,000 back. The money never left escrow. The scammer got nothing, and the insider got caught. That's EsKrow+.”",
     apply: async s => { await log(s, "case-svc", "AUTHORITY_ORDER", `${CASE} · refund to buyer`); s.led.escrow -= DEAL.amount; s.led.buyer += DEAL.amount; s.led.status = "refunded"; await log(s, "escrow-svc", "REFUND_ISSUED", `${thb(DEAL.amount)} → ${BUYER.name} · paying account`); } },
 ];
 
@@ -472,8 +472,8 @@ const PHONE = {
     <div class="feedhead">feed</div>
     <div class="post-top"><div class="avatar">iP</div><div><b>${DEAL.seller}</b><div class="field">Bangkok · 2 h</div></div></div>
     <div class="post-img"><span class="hot">HOT 🔥</span><div class="ph"></div><span class="price-tag">${thb(DEAL.amount)}</span></div>
-    <div class="caption"><b>${DEAL.seller}</b> iPhone 15 128GB มือหนึ่ง ประกันศูนย์ไทย 🔥 เหลือ 18,000 บาทเท่านั้น! โอนก่อน ส่งไวภายในวันนี้ 🚚 ทักแชทเลย
-      <small>“Brand new, Thai warranty. Only ฿18,000! Transfer first, ships today. DM now.”</small></div>
+    <div class="caption"><b>${DEAL.seller}</b> iPhone 15 128GB มือหนึ่ง ประกันศูนย์ไทย 🔥 เหลือ 20,000 บาทเท่านั้น! โอนก่อน ส่งไวภายในวันนี้ 🚚 ทักแชทเลย
+      <small>“Brand new, Thai warranty. Only ฿20,000! Transfer first, ships today. DM now.”</small></div>
     <div class="comment">ploy.s · สนใจค่ะ ทักไปแล้วนะคะ</div>
     <div class="pbody" style="justify-content:flex-end"><button class="pbtn tap" data-next style="--d:.6s">Chat with seller</button></div>`,
 
@@ -713,7 +713,7 @@ const FOCUS = {
   insider: () => `
     <h2 class="in">The rogue admin<small>01:50 · a real employee with real access</small></h2>
     <div class="req in" style="--d:.15s"><span class="who2">!</span><span><b>ops.admin07 · Operations Officer, 4 years at the bank</b><small>Can log in to the back office and look up any EsKrow+ deal</small></span></div>
-    <div class="bribe in" style="--d:.5s"><span class="who">Message from ${DEAL.seller}</span>“฿5,000 for you if that ฿18,000 gets released tonight.”</div>
+    <div class="bribe in" style="--d:.5s"><span class="who">Message from ${DEAL.seller}</span>“฿5,000 for you if that ฿20,000 gets released tonight.”</div>
     <div class="cmp">
       <div class="side-old in" style="--d:.9s"><b>Typical back office</b>
         <ul><li>Trusted once logged in on the internal network</li><li>One admin can move money alone</li><li>Admins can edit the logs</li></ul>

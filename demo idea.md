@@ -19,13 +19,13 @@ One person taps through the phone. The presenter advances the seller's side and 
 
 | Beat | On screen | Talking point |
 |---|---|---|
-| 1. A deal too good to be true (20s) | Ploy, 24, a first jobber, sees an iPhone for ฿18,000 on IG | "THB 63 billion lost. This is how it starts." |
+| 1. A deal too good to be true (20s) | Ploy, 24, a first jobber, sees an iPhone for ฿20,000 on IG | "THB 63 billion lost. This is how it starts." |
 | 2. The deal QR (30s) | Seller first sends an ordinary PromptPay QR → app warns "Not a protected deal". Ploy asks for an EsKrow+ deal; the seller creates one (item, price, Ploy's name and address) and sends the **bank-signed deal QR** → verified on her phone | Bank-signed QR |
 | 3. Risk check (30s) | Account is 9 days old, receives money from many sources, matches a fraud-registry pattern → **Red** card with reason categories (no score). Main button "Don't pay yet"; "Pay anyway" counts down | Behavioral Risk Signal |
 | 4. Escrow (20s) | Ploy pays anyway. Every deal is held in escrow: contract signed by the seller and Ploy (both by live face scan) and the bank; the money is **held**, not sent | "Even if she ignores the warning, the money stays protected." |
 | 5. Fake shipment (50s) | Seller sends a shipment ID. Ploy looks it up in the carrier's app: wrong recipient, Chiang Mai, created before the deal → taps **Report** (reason + screenshot) → money stays held. Seller refuses to settle → **Evidence Pack to AOC 1441** | Buyer check + one-tap Report: the main moment |
 | 6. The rogue admin (90s) | Five steps: a bribed Operations Officer logs in from an unknown laptop → force release hits **four walls** (Zero-Trust, RBAC, Policy, Dual Approval) → an accomplice's approval is rejected ("rules beat signatures") → he edits the log and the **hash chain turns red** → both accounts locked, investigation opened. Ploy's phone shows "asleep" throughout | Zero-Trust Admin, RBAC, Policy-Based Authorization, Dual Approval, Tamper-Evident Log |
-| 7. Close (10s) | AOC case → authority order → Ploy sees "฿18,000 refunded" | "Scam stopped before it cost her anything." |
+| 7. Close (10s) | AOC case → authority order → Ploy sees "฿20,000 refunded" | "Scam stopped before it cost her anything." |
 
 Optional, if time allows: a 15-second legitimate deal first (tracking checks out, funds released), to show normal sellers aren't punished.
 

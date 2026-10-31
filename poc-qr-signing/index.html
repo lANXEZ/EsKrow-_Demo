@@ -169,7 +169,7 @@
     <div class="row">
       <div><label for="fBuyer">Buyer</label>
         <select id="fBuyer"><option value="U-PLOY-0424">Ploy S. (U-PLOY-0424)</option><option value="U-NOK-1187">Nok W. (U-NOK-1187)</option></select></div>
-      <div><label for="fAmount">Amount (THB)</label><input id="fAmount" type="number" min="1" step="0.01" value="18000"></div>
+      <div><label for="fAmount">Amount (THB)</label><input id="fAmount" type="number" min="1" step="0.01" value="20000"></div>
     </div>
     <div class="row">
       <div><label for="fSeller">Seller</label><input id="fSeller" value="@iphone.bkk.shop" maxlength="40"></div>
@@ -393,7 +393,7 @@ const ATTACKS = [
       tlv("53", "764") + tlv("54", S.current.amount.toFixed(2)) + tlv("58", "TH")) },
   { key: "payee", title: "Edit the payee to my account", desc: "Keep the EsKrow+ data and signature, change where money goes, fix the CRC.",
     make: () => editField(S.current.payload, "30", v => v.replace(tlv("01", ESCROW_BILLER), tlv("01", "099400000000777"))) },
-  { key: "amount", title: "Raise the amount", desc: "Change ฿18,000 to ฿28,000 and fix the CRC.",
+  { key: "amount", title: "Raise the amount", desc: "Change ฿20,000 to ฿30,000 and fix the CRC.",
     make: () => editField(S.current.payload, "54", v => (Number(v) + 10000).toFixed(2)) },
   { key: "forge", title: "Sign it with my own key", desc: "Make my own key pair, claim the bank's key ID, sign a QR to my account.",
     make: async () => {
