@@ -1,6 +1,6 @@
 # EsKrow+ System Design
 
-Status: agreed design as of 29 Oct 2026. Merges our earlier design with the accepted parts of "DealSure — ออกแบบระบบใหม่ v2" (see `DealSure_v2_Differences.pdf` for the item numbers U1–U16 and M1–M11 used below).
+Status: agreed design as of 29 Oct 2026; seller behaviour check updated 2 Nov 2026. Merges our earlier design with the accepted parts of "DealSure — ออกแบบระบบใหม่ v2" (see `DealSure_v2_Differences.pdf` for the item numbers U1–U16 and M1–M11 used below).
 
 Target users: First Jobbers aged 20–29, the age group that loses most to online scams (28% of victims), buying through social commerce (M11).
 
@@ -11,7 +11,10 @@ Target users: First Jobbers aged 20–29, the age group that loses most to onlin
 3. **Buyer check (U4).** The buyer's account is checked too: not frozen, not a mule, no history of dispute abuse. Pass/fail only, and the result is never shown to the seller (PDPA).
 4. **Risk check (M7), two layers:**
    1. **Account status from core banking:** frozen by an authority order (AOC 1441 / CFR) means Blocked. This catches accounts already reported.
-   2. **Account and transaction analysis:** account details (age, KYC) and how money moves through the account. This catches mule accounts nobody has reported yet.
+   2. **Seller behaviour check (helper feature, updated 2 Nov):** looks for mule-account behaviour in the seller's account details and in how money moves through the account, to catch mule accounts nobody has reported yet. It supports the escrow hold and is not the main protection: the hold protects the buyer whether or not this check finds anything.
+      - **Black box for now.** The rules and method are not decided yet (see Open questions).
+      - **Runs as a batch**, at night or when the servers are idle, never during a deal or a transfer, so it never slows the main system. Each run stores a result per account.
+      - **A deal only reads the latest stored result.** An account the batch hasn't checked yet (for example, opened today) gets the same notice as the fail-safe: "Things to know: the seller check isn't available right now."
 
    **Every deal is held in escrow**, whatever the result (decided 29 Oct; replaces M3, where green sellers were paid instantly). The risk result only changes what the buyer is told:
 
@@ -58,7 +61,7 @@ Sellers see all their own stats in a seller dashboard and choose which ones to s
 - **Opt-in display:** the seller ticks any of the positive stats to show. They appear on the buyer's seller-check page, beside the bank's facts, under "Stats shared by the seller · verified by the bank". The seller can turn each one off at any time (consent under the PDPA).
 - **Only completed EsKrow+ deals count.** Raw account inflow is never used: a mule account receiving victims' transfers would otherwise look like a top seller.
 - **The bank computes every number.** The seller can choose what to show but can't edit it. Money is shown rounded (e.g. "฿1.2M+") so it doesn't expose exact income.
-- **Unique buyers** are distinct face-verified people, and the graph checks (U15) discount circles of accounts trading with each other, so the count can't be inflated with fake buyers.
+- **Unique buyers** are distinct face-verified people, and the seller behaviour check (U15) discounts circles of accounts trading with each other, so the count can't be inflated with fake buyers.
 - **Reputation sits beside the facts, never replaces them.** The bank's facts (account age, recent buyer reports) still show whatever the seller picks. Good stats can outweigh a warning in the buyer's eyes, but they can't hide one.
 
 ## Bank staff (U13)
@@ -85,14 +88,14 @@ Sellers see all their own stats in a seller dashboard and choose which ones to s
   |---|---|---|
   | Listing/QR | Signs deal QRs | HSM |
   | Deal | State machine and deadlines | Postgres |
-  | Risk | Reads scores from cache in milliseconds | Redis |
+  | Risk | Reads the latest batch result from cache in milliseconds; computes nothing during a deal | Redis |
   | Payment | Transfer / hold / refund through the existing transfer system, with idempotency keys | Existing transfer system |
   | Shipment | Records the seller's shipment ID and starts the buyer's 24 h window | No carrier integration |
 
 - Kafka carries events to background work: the Evidence service, the risk pipeline, Case/Report and the Admin console.
-- **Risk pipeline:** rules + XGBoost + GraphSAGE on the transfer graph, computed in the background.
+- **Risk pipeline (seller behaviour check):** a black box for now; rules and method to be decided. Runs as a batch at night or when servers are idle, and writes each account's result to the Risk cache. It never runs inside a deal or a transfer.
 - **Account status:** read from the core banking system at deal creation and again before payout. No external government API in phase 1.
-- **Fail-safe:** if the Risk service is down, show "Things to know: the seller check isn't available right now", never "Normal". The deal is held in escrow either way.
+- **Fail-safe:** if the Risk service is down, or the seller's account has no batch result yet, show "Things to know: the seller check isn't available right now", never "Normal". The deal is held in escrow either way.
 - **Identity:** a live face scan by both parties on every deal. This makes renting or selling a bank account to a scammer (a mule account) much harder, and ties every deal to a verified person.
 - **Device protection:** app attestation (Play Integrity / App Attest), and token-bucket rate limits per user, device and QR.
 
@@ -115,6 +118,9 @@ Sellers see all their own stats in a seller dashboard and choose which ones to s
 - M1: renaming (EsKrow+ / K PLUS kept for now). The DealSure doc says the competition bans KBank / KBTG / K PLUS names and logos in the product, prototype and demo.
 
 ## Open questions
+
+- Seller behaviour check: which rules and method it uses (kept as a black box until decided).
+- Batch schedule: nightly or whenever servers are idle, and how old a result may be before it counts as "not available".
 
 - 48 h shipping and 24 h confirmation windows: confirm they fit carrier pickup times, long weekends, and a buyer who is busy for a day.
 - Confirm with the bank that its core system already freezes accounts flagged through AOC 1441 / CFR, and how quickly.
