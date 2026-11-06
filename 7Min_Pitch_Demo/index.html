@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EsKrow+ Demo · กลโกง 6 แบบ</title>
+<style>
+  @font-face { font-family: Prompt; font-weight: 400; src: url(fonts/prompt-400-thai.woff2) format("woff2"); unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC; }
+  @font-face { font-family: Prompt; font-weight: 400; src: url(fonts/prompt-400-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  @font-face { font-family: Prompt; font-weight: 600; src: url(fonts/prompt-600-thai.woff2) format("woff2"); unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC; }
+  @font-face { font-family: Prompt; font-weight: 600; src: url(fonts/prompt-600-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  @font-face { font-family: Prompt; font-weight: 700; src: url(fonts/prompt-700-thai.woff2) format("woff2"); unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC; }
+  @font-face { font-family: Prompt; font-weight: 700; src: url(fonts/prompt-700-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+  /* colours taken from the pitch deck */
+  :root {
+    --g900: #0d4637; --g800: #155a47; --g600: #1f7a5c; --mint: #ddf0e7; --mint2: #a9c7bc;
+    --paper: #f4f7f5; --white: #ffffff; --ink: #17302a; --muted: #5b6e67; --line: #d5e0db;
+    --gold: #e2b13c; --gold-dark: #9a7212; --gold-soft: #fbf1d6;
+    --bad: #c8372d; --bad-soft: #fbe6e3; --ok: #1f7a5c; --ok-soft: #ddf0e7; --sig: #6a4fb3; --sig-soft: #ece7f8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #07261e; }
+  body { font-family: Prompt, "Leelawadee UI", sans-serif; color: var(--ink); cursor: default; }
+  #stage { position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px; overflow: hidden;
+           transform: translate(-50%, -50%) scale(var(--s, 1)); background: var(--g900);
+           display: grid; grid-template-rows: 124px 1fr 96px; }
+  .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+
+  /* ---------- animation, only when stepping forward ---------- */
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { 0% { opacity: 0; transform: scale(.9); } 60% { opacity: 1; transform: scale(1.03); } 100% { transform: none; } }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(226,177,60,.7); } 100% { box-shadow: 0 0 0 16px rgba(226,177,60,0); } }
+  @keyframes flash { 0%, 100% { background-color: var(--white); } 30% { background-color: #fff3c4; } }
+  @keyframes scan { 0% { top: 6%; opacity: 1; } 50% { top: 88%; } 92% { top: 6%; opacity: 1; } 100% { top: 6%; opacity: 0; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes gone { to { opacity: 0; visibility: hidden; } }
+  @keyframes ripple { from { opacity: .6; transform: translate(-50%,-50%) scale(.2); } to { opacity: 0; transform: translate(-50%,-50%) scale(1); } }
+  .anim .in { animation: rise .5s both; animation-delay: var(--d, 0s); }
+  .anim .popin { animation: pop .5s both; animation-delay: var(--d, 0s); }
+  .anim .flash { animation: flash 1.4s ease-out; animation-delay: var(--d, 0s); }
+  .anim .scanline { animation: scan 1.6s ease-in-out 1 both; animation-delay: var(--d, 0s); }
+  .scanline { display: none; }
+  .anim .scanline { display: block; }
+  .checking { display: none; }
+  .anim .checking { display: flex; animation: gone .3s forwards; animation-delay: var(--d, 1.6s); }
+
+  /* ---------- top bar ---------- */
+  .top { display: flex; align-items: center; gap: 26px; padding: 22px 48px 0; color: #fff; }
+  .chip { flex: none; background: var(--mint); color: var(--g900); font-weight: 700; font-size: 22px; border-radius: 99px; padding: 8px 22px; }
+  .chip.trick { background: var(--gold); color: var(--g900); }
+  .chip.branch { background: transparent; color: var(--gold); border: 2px dashed var(--gold); }
+  .ttl { flex: 1; min-width: 0; }
+  .ttl b { display: block; font-size: 42px; font-weight: 700; line-height: 1.15; }
+  .ttl span { display: block; font-size: 21px; color: var(--mint2); margin-top: 2px; }
+  .meta { text-align: right; color: var(--mint2); font-size: 16px; }
+  .meta b { display: block; color: #fff; font-size: 26px; font-weight: 600; }
+  .stops { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; align-items: center; }
+  .stops em { font-style: normal; margin-right: 6px; }
+  .stops i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--mint2); display: grid; place-items: center; font-style: normal; font-weight: 700; font-size: 15px; color: var(--mint2); }
+  .stops i.on { background: var(--gold); border-color: var(--gold); color: var(--g900); }
+
+  /* ---------- main: seller | EsKrow+ | buyer ---------- */
+  .main { display: grid; grid-template-columns: 404px 1fr 404px; gap: 30px; padding: 14px 44px 0; min-height: 0; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 0; }
+  .cap { color: #fff; font-size: 19px; font-weight: 600; text-align: center; line-height: 1.3; }
+  .cap small { display: block; color: var(--mint2); font-weight: 400; font-size: 15px; }
+  .cap .bad { color: #ff9c92; }
+
+  .phone { width: 384px; height: 772px; border: 11px solid #06140f; border-radius: 52px; background: var(--white); overflow: hidden; position: relative; box-shadow: 0 26px 50px rgba(0,0,0,.35); flex: none; }
+  .sbar { height: 40px; display: flex; justify-content: space-between; align-items: center; padding: 4px 26px 0; font-size: 14px; font-weight: 600; position: relative; z-index: 3; }
+  .notch { position: absolute; top: 8px; left: 50%; width: 100px; height: 24px; border-radius: 20px; background: #06140f; transform: translateX(-50%); }
+  .screen { position: absolute; inset: 40px 0 0 0; display: flex; flex-direction: column; }
+  .dimmer { position: absolute; inset: 0; z-index: 6; background: rgba(6,20,15,.88); color: #fff; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; font-size: 17px; padding: 30px; }
+  .dimmer span { font-size: 50px; } .dimmer b { font-size: 23px; }
+  .phone.dim .dimmer { display: flex; }
+
+  .apphead { background: var(--g600); color: #fff; padding: 12px 18px 14px; }
+  .apphead b { font-size: 19px; display: block; font-weight: 600; }
+  .apphead small { opacity: .85; font-size: 13px; }
+  .apphead.seller { background: #33463f; }
+  .pbody { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 11px; overflow: hidden; position: relative; }
+  .pcard { border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; background: var(--white); }
+  .pbtn { display: block; width: 100%; font: inherit; font-size: 17px; font-weight: 600; border-radius: 14px; padding: 12px; border: 2px solid var(--g600); background: var(--g600); color: #fff; text-align: center; cursor: pointer; }
+  .pbtn.ghost { background: var(--white); color: var(--ink); border-color: var(--line); }
+  .pbtn.red { background: var(--white); color: var(--bad); border-color: var(--bad); }
+  .pbtn.dark { background: #33463f; border-color: #33463f; }
+  .tap { animation: pulse 1.4s infinite; }
+  .anim .tap { animation: rise .5s both, pulse 1.4s infinite; animation-delay: var(--d, 0s), calc(var(--d, 0s) + .5s); }
+  .field { font-size: 13px; color: var(--muted); }
+  .field b { display: block; color: var(--ink); font-size: 16px; font-weight: 600; margin-top: 1px; }
+  .fields { display: grid; gap: 8px; }
+  .spacer { flex: 1; }
+  .center { text-align: center; }
+  .alert { border-radius: 16px; padding: 14px; }
+  .alert h3 { margin: 0 0 4px; font-size: 19px; font-weight: 700; }
+  .alert p { margin: 0; font-size: 14.5px; line-height: 1.45; }
+  .alert ul { margin: 6px 0 0; padding-left: 20px; font-size: 14.5px; color: var(--ink); } .alert li { margin: 2px 0; }
+  .a-bad { background: var(--bad-soft); color: var(--bad); }
+  .a-ok { background: var(--ok-soft); color: var(--g800); }
+  .a-hold { background: var(--gold-soft); color: var(--gold-dark); }
+  .big-money { font-size: 42px; font-weight: 700; letter-spacing: -.01em; }
+  .notif { background: rgba(23,48,42,.94); color: #fff; border-radius: 16px; padding: 11px 13px; font-size: 13.5px; display: flex; gap: 10px; align-items: center; }
+  .notif .ic { width: 32px; height: 32px; border-radius: 9px; background: var(--g600); display: grid; place-items: center; flex: none; }
+  .notif b { display: block; font-size: 14.5px; }
+  .toast { position: absolute; left: 14px; right: 14px; bottom: 14px; background: rgba(23,48,42,.94); color: #fff; padding: 10px 14px; border-radius: 12px; font-size: 14px; text-align: center; z-index: 4; }
+  .checking { position: absolute; inset: 0; background: var(--white); z-index: 2; flex-direction: column; align-items: center; justify-content: center; gap: 16px; font-size: 17px; color: var(--muted); }
+  .spinner { width: 50px; height: 50px; border-radius: 50%; border: 6px solid var(--mint); border-top-color: var(--g600); animation: spin .9s linear infinite; }
+
+  /* chat */
+  .chat { background: var(--paper); border-radius: 16px; padding: 11px; display: flex; flex-direction: column; gap: 7px; }
+  .bubble { background: var(--white); border: 1px solid var(--line); border-radius: 16px 16px 16px 4px; padding: 9px 11px; max-width: 84%; font-size: 14.5px; }
+  .bubble.me { align-self: flex-end; border-radius: 16px 16px 4px 16px; background: var(--mint); border-color: var(--mint); }
+  .bubble img { display: block; width: 128px; height: 128px; margin-top: 7px; image-rendering: pixelated; }
+  .who { font-size: 12px; color: var(--muted); }
+
+  /* social post */
+  .feedhead { padding: 8px 16px; font-size: 21px; font-weight: 700; border-bottom: 1px solid var(--line); }
+  .post-top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg,#f58529,#dd2a7b,#8134af); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+  .post-img { height: 300px; background: linear-gradient(160deg,#20262b,#3a4450 60%,#59636e); display: grid; place-items: center; position: relative; color: #fff; }
+  .post-img .ph { width: 112px; height: 214px; border-radius: 24px; background: linear-gradient(160deg,#2b2b2b,#0f0f0f); border: 3px solid #555; }
+  .price-tag { position: absolute; right: 16px; bottom: 16px; background: var(--gold); color: #111; font-weight: 700; font-size: 28px; padding: 4px 14px; border-radius: 12px; transform: rotate(-4deg); }
+  .caption { padding: 10px 14px 0; font-size: 14.5px; line-height: 1.45; }
+
+  /* face scan */
+  .fscan { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 2px 0 0; }
+  .oval { width: 140px; height: 172px; border-radius: 50%; overflow: hidden; position: relative; border: 4px solid var(--g600); background: #dfe9e4; }
+  .oval svg { width: 100%; height: 100%; display: block; }
+  .oval.bad { border-color: var(--bad); }
+  .scanline { position: absolute; left: 4%; right: 4%; height: 4px; border-radius: 4px; background: var(--gold); box-shadow: 0 0 14px var(--gold); top: 6%; }
+  .fres { font-weight: 700; font-size: 16px; border-radius: 99px; padding: 6px 16px; }
+  .fres.ok { background: var(--ok-soft); color: var(--g800); } .fres.bad { background: var(--bad-soft); color: var(--bad); }
+  .simtag { font-size: 11.5px; color: var(--muted); }
+
+  /* timeline on phones */
+  .tl { list-style: none; margin: 0; padding: 0; }
+  .tl li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 5px 0; font-size: 14px; position: relative; }
+  .tl li::before { content: ""; position: absolute; left: 13px; top: 32px; bottom: -6px; width: 2px; background: var(--line); }
+  .tl li:last-child::before { display: none; }
+  .tl .dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--paper); color: var(--muted); border: 2px solid var(--line); position: relative; z-index: 1; }
+  .tl .done .dot { background: var(--g600); color: #fff; border-color: var(--g600); }
+  .tl .fail .dot { background: var(--bad); color: #fff; border-color: var(--bad); }
+  .tl .hold .dot { background: var(--gold); color: var(--g900); border-color: var(--gold); }
+  .tl b { display: block; font-size: 15px; font-weight: 600; }
+  .tl small { color: var(--muted); font-size: 12.5px; }
+
+  /* ---------- centre: EsKrow+ view ---------- */
+  .sys { background: var(--paper); border-radius: 28px; padding: 22px 26px; display: grid; grid-template-rows: auto auto 1fr; gap: 16px; min-height: 0; height: 812px; }
+  .syshead { display: flex; align-items: center; gap: 14px; }
+  .syshead b { font-size: 24px; font-weight: 700; color: var(--g900); }
+  .syshead span { color: var(--muted); font-size: 16px; }
+  .syshead .grow { flex: 1; }
+  .logpill { font-size: 14px; font-weight: 600; border-radius: 99px; padding: 4px 14px; background: var(--mint); color: var(--g800); }
+  .logpill.bad { background: var(--bad); color: #fff; }
+
+  .vault { display: grid; grid-template-columns: 1fr 44px 1.25fr 44px 1fr; align-items: stretch; }
+  .vn { background: var(--white); border: 2px solid var(--line); border-radius: 18px; padding: 10px 16px; display: flex; flex-direction: column; justify-content: center; }
+  .vn small { font-size: 14px; color: var(--muted); font-weight: 600; }
+  .vn b { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .vn span { font-size: 13px; color: var(--muted); }
+  .vn.held { border-color: var(--gold); background: var(--gold-soft); }
+  .vn.held b { color: var(--gold-dark); }
+  .vn .pill { align-self: flex-start; margin-top: 4px; font-size: 12.5px; font-weight: 700; border-radius: 99px; padding: 2px 10px; background: var(--line); color: var(--muted); }
+  .vn .pill.hold { background: var(--gold); color: var(--g900); } .vn .pill.bad { background: var(--bad); color: #fff; } .vn .pill.ok { background: var(--g600); color: #fff; }
+  .varrow { display: grid; place-items: center; font-size: 28px; font-weight: 700; color: var(--line); }
+  .varrow.on { color: var(--gold); }
+
+  .focus { background: var(--white); border-radius: 22px; padding: 22px 26px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; min-height: 0; }
+  .focus h2 { margin: 0; font-size: 27px; font-weight: 700; color: var(--g900); line-height: 1.25; }
+  .focus h2 small { display: block; font-size: 16px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .focus p { margin: 0; font-size: 18px; line-height: 1.5; }
+  .foot { margin-top: auto; font-size: 15.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; line-height: 1.5; }
+  .foot b { color: var(--ink); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .checks { display: grid; gap: 7px; }
+  .chk { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: center; padding: 6px 14px; border-radius: 12px; background: var(--paper); font-size: 17px; font-weight: 600; }
+  .chk .s { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; font-size: 17px; background: var(--line); color: var(--muted); }
+  .chk.ok .s { background: var(--ok-soft); color: var(--g600); }
+  .chk.bad .s { background: var(--bad-soft); color: var(--bad); }
+  .chk.warn .s { background: var(--gold-soft); color: var(--gold-dark); }
+  .chk.skip { opacity: .45; }
+  .chk small { display: block; font-size: 14px; color: var(--muted); font-weight: 400; }
+  .chk.bad small { color: var(--bad); }
+  .verdict { border-radius: 16px; padding: 12px 20px; font-size: 23px; font-weight: 700; }
+  .verdict small { display: block; font-size: 15.5px; font-weight: 400; margin-top: 2px; }
+  .v-bad { background: var(--bad); color: #fff; } .v-ok { background: var(--g600); color: #fff; } .v-warn { background: var(--gold); color: var(--g900); } .v-hold { background: var(--gold-soft); color: var(--gold-dark); border: 2px solid var(--gold); }
+  .tag { display: inline-block; font-size: 13px; font-weight: 600; border-radius: 8px; padding: 1px 9px; vertical-align: 2px; background: var(--mint); color: var(--g800); }
+  .tag.gold { background: var(--gold-soft); color: var(--gold-dark); } .tag.gray { background: var(--paper); color: var(--muted); border: 1px solid var(--line); } .tag.red { background: var(--bad-soft); color: var(--bad); }
+
+  /* QR inspector */
+  .qrraw { font: 13.5px/1.55 Consolas, monospace; background: #0f1f1a; color: #c9d6d0; border-radius: 14px; padding: 12px 16px; overflow-wrap: anywhere; }
+  .qrraw .lbl { display: block; font: 600 14px Prompt, sans-serif; color: var(--mint2); margin-bottom: 4px; }
+  .seg { border-radius: 4px; padding: 0 1px; }
+  .g-pay { color: #8fe0b8; } .g-esk { color: #f2cd6b; } .g-disp { color: #d9e3df; } .g-sig { color: #c4b2ff; } .g-crc { color: #8a9a93; }
+  .seg.hit { background: var(--bad); color: #fff; }
+  .ftab { display: grid; grid-template-columns: 70px 190px 1fr; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 15.5px; }
+  .ftab > div { padding: 7px 12px; border-top: 1px solid var(--line); display: flex; align-items: center; }
+  .ftab > div:nth-child(-n+3) { border-top: 0; }
+  .ftab .t { font: 700 15px Consolas, monospace; justify-content: center; }
+  .ftab .n { font-weight: 600; }
+  .ftab .v { min-width: 0; overflow-wrap: anywhere; }
+  .t.g-pay { background: var(--ok-soft); color: var(--g800); } .t.g-esk { background: var(--gold-soft); color: var(--gold-dark); } .t.g-disp { background: var(--paper); color: var(--muted); } .t.g-sig { background: var(--sig-soft); color: var(--sig); } .t.g-crc { background: var(--paper); color: var(--muted); }
+  .diff { display: grid; grid-template-columns: 140px 1fr; gap: 2px 16px; font-size: 17px; background: var(--paper); border-radius: 14px; padding: 7px 18px; align-items: center; }
+  .diff .old { text-decoration: line-through; color: var(--muted); } .diff .new { color: var(--bad); font-weight: 700; }
+
+  /* face compare */
+  .fcmp { display: grid; grid-template-columns: 1fr 120px 1fr; align-items: start; gap: 10px; }
+  .fcmp .fvs { align-self: center; margin-top: -40px; }
+  .fcol { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; font-size: 15px; color: var(--muted); line-height: 1.4; }
+  .fimg { width: 150px; height: 180px; border-radius: 50%; overflow: hidden; position: relative; border: 4px solid var(--line); background: #dfe9e4; }
+  .fimg svg { width: 100%; height: 100%; display: block; }
+  .fvs { text-align: center; font-size: 46px; font-weight: 700; line-height: 1; }
+  .fvs small { display: block; font-size: 14px; font-weight: 600; margin-top: 6px; }
+  .fvs.ok { color: var(--g600); } .fvs.bad { color: var(--bad); }
+
+  /* dispute flow */
+  .dflow { display: grid; grid-template-columns: 1fr 28px 1.2fr 28px 1.1fr; align-items: stretch; }
+  .dn { border: 2px solid var(--line); border-radius: 16px; padding: 10px 14px; font-size: 15px; color: var(--muted); background: var(--white); }
+  .dn b { display: block; font-size: 17px; color: var(--ink); font-weight: 600; margin-bottom: 2px; }
+  .dn.now { border-color: var(--gold); background: var(--gold-soft); }
+  .dn.done { border-color: var(--g600); }
+  .dar { display: grid; place-items: center; font-weight: 700; color: var(--muted); font-size: 22px; }
+  .dsplit { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
+
+  /* insider */
+  .req { display: flex; gap: 14px; align-items: center; background: #1b2420; color: #e6ece8; border-radius: 16px; padding: 12px 16px; font-size: 17px; }
+  .req .who2 { width: 46px; height: 46px; border-radius: 12px; background: #4a2020; color: #ff8a8a; display: grid; place-items: center; font-weight: 700; flex: none; }
+  .req small { display: block; color: #9aa8a0; font-size: 14px; }
+  .walls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .wall { background: var(--paper); border-radius: 16px; padding: 12px 16px; border-top: 5px solid var(--bad); }
+  .wall b { display: flex; justify-content: space-between; font-size: 19px; font-weight: 700; }
+  .wall b i { font-style: normal; color: var(--bad); }
+  .wall span { display: block; font-size: 15px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .chain { display: grid; grid-template-columns: 1fr 34px 1.15fr 34px 1fr; align-items: center; }
+  .blk { background: var(--paper); border: 2px solid var(--line); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .blk.bad { background: var(--bad-soft); border-color: var(--bad); }
+  .bn { font-size: 13px; color: var(--muted); font-weight: 600; } .blk.bad .bn { color: var(--bad); }
+  .ba { font: 700 14px Consolas, monospace; overflow-wrap: anywhere; }
+  .bh { font: 13px Consolas, monospace; color: var(--muted); } .blk.bad .bh b { color: var(--bad); }
+  .lnk { text-align: center; font-size: 26px; font-weight: 700; color: var(--muted); } .lnk.bad { color: var(--bad); }
+
+  /* cast + summary */
+  .cast { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .role { border-radius: 18px; padding: 16px; background: var(--paper); font-size: 16px; line-height: 1.45; color: var(--muted); }
+  .role b { display: block; font-size: 21px; color: var(--ink); margin-bottom: 4px; }
+  .role.badr b { color: var(--bad); } .role.sysr { background: var(--g900); color: var(--mint2); } .role.sysr b { color: #fff; }
+  .tally { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tal { display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: center; background: var(--paper); border-radius: 14px; padding: 10px 14px; font-size: 16px; }
+  .tal i { width: 40px; height: 40px; border-radius: 50%; background: var(--gold); color: var(--g900); display: grid; place-items: center; font-style: normal; font-weight: 700; font-size: 18px; }
+  .tal b { display: block; font-size: 17px; font-weight: 600; } .tal span { color: var(--muted); font-size: 14.5px; }
+  .terms { display: grid; grid-template-columns: 200px 1fr; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 16px; }
+  .terms div { padding: 7px 14px; border-top: 1px solid var(--line); }
+  .terms div:nth-child(-n+2) { border-top: 0; }
+  .terms div:nth-child(odd) { background: var(--paper); color: var(--muted); font-weight: 600; }
+  .cmp2 { display: grid; grid-template-columns: 150px 1fr 1fr; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 17px; }
+  .cmp2 div { padding: 9px 14px; border-top: 1px solid var(--line); }
+  .cmp2 div:nth-child(-n+3) { border-top: 0; background: var(--paper); font-weight: 600; color: var(--muted); }
+  .cmp2 .x { color: var(--bad); font-weight: 700; }
+  .bigline { font-size: 38px; font-weight: 700; color: var(--g900); line-height: 1.2; }
+  .bigline em { font-style: normal; color: var(--gold-dark); }
+  .clock48 { font: 700 64px Consolas, monospace; color: var(--bad); text-align: center; letter-spacing: .02em; }
+
+  /* ---------- bottom: deal state ---------- */
+  .bottom { display: flex; align-items: center; gap: 12px; padding: 0 48px 6px; color: var(--mint2); font-size: 16px; }
+  .bottom > em { font-style: normal; margin-right: 6px; flex: none; }
+  .stt { flex: none; border: 2px solid var(--g600); color: var(--mint2); border-radius: 12px; padding: 7px 14px; font-weight: 600; }
+  .stt.past { background: var(--g800); border-color: var(--g800); color: #fff; }
+  .stt.now { background: var(--gold); border-color: var(--gold); color: var(--g900); }
+  .stt.alt { border-style: dashed; }
+  .sar { color: var(--g600); font-weight: 700; flex: none; }
+  .sep { width: 2px; height: 34px; background: var(--g600); margin: 0 10px; flex: none; }
+
+  /* ---------- overlays ---------- */
+  #hint { position: fixed; right: 14px; bottom: 6px; font: 12px Prompt, sans-serif; color: rgba(221,240,231,.4); z-index: 20; pointer-events: none; }
+  #notes { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(1180px, 94vw); background: rgba(5,18,14,.95); color: #f0f4f2;
+           border-radius: 14px; padding: 14px 20px; font: 18px/1.55 Prompt, sans-serif; z-index: 21; display: none; }
+  #notes b { color: var(--gold); }
+  #help { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; place-items: center; z-index: 22; }
+  #help div { background: #fff; border-radius: 16px; padding: 24px 30px; font: 16px/1.8 Prompt, sans-serif; min-width: 440px; }
+  #help kbd { display: inline-block; min-width: 28px; text-align: center; border: 1px solid #ccd; border-bottom-width: 2px; border-radius: 6px; padding: 0 6px; font: 14px Consolas, monospace; margin-right: 8px; }
+  .rip { position: fixed; width: 90px; height: 90px; border-radius: 50%; border: 4px solid rgba(226,177,60,.9); pointer-events: none; z-index: 30; animation: ripple .55s ease-out forwards; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="top">
+    <div class="chip" id="chip"></div>
+    <div class="ttl"><b id="title"></b><span id="sub"></span></div>
+    <div class="meta"><b id="clock"></b>ต้นแบบ · ข้อมูลจำลอง
+      <div class="stops" id="stops"></div></div>
+  </div>
+  <!-- buyer left, seller right: same direction as the money in the vault row -->
+  <div class="main">
+    <div class="col">
+      <div class="phone" id="bphone"><div class="notch"></div><div class="sbar"><span class="pclock"></span><span>●●● 5G ▮</span></div>
+        <div class="screen" id="bscreen"></div><div class="dimmer"><span>😴</span><b>พลอยหลับอยู่</b>ไม่มีอะไรมาถึงมือถือของเธอ</div></div>
+      <div class="cap">พลอย · ผู้ซื้อ<small>First Jobber อายุ 24</small></div>
+    </div>
+    <div class="sys">
+      <div class="syshead"><b>EsKrow+</b><span>มุมมองฝั่งธนาคาร</span><span class="grow"></span><span class="logpill" id="logpill"></span></div>
+      <div id="vault"></div>
+      <div class="focus" id="focus"></div>
+    </div>
+    <div class="col">
+      <div class="phone" id="sphone"><div class="notch"></div><div class="sbar"><span class="pclock"></span><span>●●● 5G ▮</span></div>
+        <div class="screen" id="sscreen"></div><div class="dimmer"><span>💼</span><b>นอกแอป</b>ผู้ขายติดสินบนพนักงานธนาคาร</div></div>
+      <div class="cap"><span class="bad">ผู้ขาย · มิจฉาชีพ</span><small>@iphone.bkk.shop</small></div>
+    </div>
+  </div>
+  <div class="bottom" id="bottom"></div>
+</div>
+<div id="hint">→ ถัดไป · ← ย้อน · R เริ่มใหม่ · 0–7 ข้ามไปกลโกง · N บทพูด · F เต็มจอ · ? ปุ่มทั้งหมด</div>
+<div id="notes"></div>
+<div id="help"><div>
+  <b style="font-size:20px">ปุ่มสำหรับผู้นำเสนอ</b><br>
+  <kbd>→</kbd><kbd>Space</kbd>ขั้นถัดไป (หรือแตะปุ่มที่กะพริบบนมือถือ)<br>
+  <kbd>←</kbd>ย้อนกลับหนึ่งขั้น<br>
+  <kbd>0</kbd>–<kbd>7</kbd>ข้ามไปเริ่มกลโกงนั้น (0 เริ่มเรื่อง, 7 สรุป)<br>
+  <kbd>R</kbd>เริ่มใหม่ตั้งแต่ต้น<br>
+  <kbd>N</kbd>เปิด/ปิดบทพูด<br>
+  <kbd>F</kbd>เต็มจอ<br>
+  <kbd>H</kbd>ซ่อน/แสดงแถบปุ่มมุมขวาล่าง<br>
+  <span style="color:#667">ลายเซ็น QR และ hash chain คำนวณจริงในเบราว์เซอร์ทุกครั้งที่เปิดหน้า<br>ระบบธนาคาร ขนส่ง และการสแกนใบหน้าเป็นการจำลอง</span>
+</div></div>
+
+<script src="vendor/qrcode.js"></script>
+<script>
+"use strict";
+// ================= story data =================
+const DEAL = { id: "EK2610130042", item: "iPhone 15 128GB มือสอง", itemAscii: "iPhone 15 128GB (used)", amount: 20000,
+  tag: "@iphone.bkk.shop", seller: "นาย ธ*** ว***", sellerAcct: "xxx-x-x4417", mule: "น.ส. ก*** ส***", muleAcct: "xxx-x-x8812", track: "TH2410887351" };
+const BUYER = { name: "พลอย ส.", id: "U-PLOY-0424", balance: 42350, addr: "บางรัก กรุงเทพฯ 10500" };
+const ESCROW_BILLER = "099400000000001", ATTACKER_BILLER = "099400000000777";
+const PROMPTPAY_BILL_AID = "A000000677010112", PROMPTPAY_P2P_AID = "A000000677010111";
+const ESK_GUID = "TH.ESKROW", KID = "bank-2026-01";
+const T = (d, h, m) => new Date(2026, 9, d, h, m).getTime();
+const TH_MON = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const thb = n => "฿" + Number(n).toLocaleString("en-US");
+const hm = t => new Date(t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const dthai = t => { const d = new Date(t); return d.getDate() + " " + TH_MON[d.getMonth()]; };
+const dt = t => dthai(t) + " " + hm(t);
+
+// ================= Thai QR (EMVCo TLV) + real ECDSA signing, as in poc-qr-signing =================
+const enc = new TextEncoder();
+const tlv = (tag, v) => tag + String(String(v).length).padStart(2, "0") + v;
+function parseTLV(str) {
+  const out = []; let i = 0;
+  while (i < str.length) {
+    const tag = str.substr(i, 2), lenStr = str.substr(i + 2, 2);
+    if (!/^\d{2}$/.test(tag) || !/^\d{2}$/.test(lenStr)) throw new Error("bad field");
+    const len = +lenStr, value = str.substr(i + 4, len);
+    if (value.length !== len) throw new Error("short field");
+    out.push({ tag, value, start: i, end: i + 4 + len });
+    i += 4 + len;
+  }
+  return out;
+}
+const sub = (fields, tag) => { const f = fields.find(x => x.tag === tag); return f ? f.value : undefined; };
+function crc16(str) {
+  let c = 0xFFFF;
+  for (const b of enc.encode(str)) { c ^= b << 8; for (let k = 0; k < 8; k++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF; }
+  return c.toString(16).toUpperCase().padStart(4, "0");
+}
+const withCrc = body => body + "6304" + crc16(body + "6304");
+const stripCrc = s => s.replace(/6304[0-9A-Fa-f]{4}$/, "");
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = s => { s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+const sha = async s => [...new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s)))].map(b => b.toString(16).padStart(2, "0")).join("");
+const binding = async (buyerId, dealId) => (await sha("eskrow-binding|" + buyerId + "|" + dealId)).slice(0, 12).toUpperCase();
+const EC = { name: "ECDSA", namedCurve: "P-256" }, SIG = { name: "ECDSA", hash: "SHA-256" };
+const qrImg = (text, cell = 3) => { const q = qrcode(0, "M"); q.addData(text, "Byte"); q.make(); return q.createDataURL(cell, 2); };
+function editField(payload, tag, fn) {
+  const body = parseTLV(stripCrc(payload)).map(f => tlv(f.tag, f.tag === tag ? fn(f.value) : f.value)).join("");
+  return withCrc(body);
+}
+
+// filled once at start-up: the bank's key pair, the three QR codes the story uses, and the app's live check of each
+const CRY = { priv: null, pinned: {}, fp: "", exp: 0, bind: "", deal: { id: DEAL.id, status: "awaiting" } };
+const QR = {};
+
+async function buildSigned() {
+  const body =
+    tlv("00", "01") + tlv("01", "12") +
+    tlv("30", tlv("00", PROMPTPAY_BILL_AID) + tlv("01", ESCROW_BILLER) + tlv("02", DEAL.id) + tlv("03", "ESKROW")) +
+    tlv("53", "764") + tlv("54", DEAL.amount.toFixed(2)) + tlv("58", "TH") +
+    tlv("59", "ESKROW+ ESCROW") + tlv("60", "BANGKOK") +
+    tlv("80", tlv("00", ESK_GUID) + tlv("01", KID) + tlv("02", CRY.bind) + tlv("03", String(CRY.exp))) +
+    tlv("81", tlv("00", DEAL.tag) + tlv("01", DEAL.itemAscii));
+  const sig = await crypto.subtle.sign(SIG, CRY.priv, enc.encode(body));
+  return withCrc(body + tlv("82", tlv("00", "ES256") + tlv("01", b64u(sig))));
+}
+
+const CHECK_NAMES = ["อ่าน QR ได้ (มาตรฐาน Thai QR)", "CRC ถูกต้อง", "มีข้อมูล EsKrow+", "ลายเซ็นตรงกับกุญแจธนาคารที่ฝังในแอป",
+  "ผู้รับเงินคือบัญชีพักเงินของธนาคาร", "ยังไม่หมดอายุ", "ออกให้พลอยคนนี้เท่านั้น", "ดีลยังเปิดอยู่ (เช็กกับธนาคาร)"];
+async function verify(raw) {
+  const C = [];
+  const add = (ok, why) => C.push({ name: CHECK_NAMES[C.length], ok, why });
+  const rest = () => { while (C.length < CHECK_NAMES.length) C.push({ name: CHECK_NAMES[C.length], ok: null }); };
+  const fin = verdict => { rest(); return { checks: C, verdict }; };
+  let top;
+  try { top = parseTLV(raw); if (sub(top, "00") !== "01") throw 0; add(true, "รูปแบบ EMVCo"); }
+  catch { add(false, "ไม่ใช่ QR ชำระเงิน"); return fin("bad"); }
+  const crcF = top.find(f => f.tag === "63");
+  const crcOk = !!crcF && crcF.end === raw.length && crc16(raw.slice(0, crcF.start + 4)) === crcF.value.toUpperCase();
+  add(crcOk, crcOk ? "ตรง · แต่ CRC บอกแค่ว่าข้อมูลไม่เสียหาย ใครก็คำนวณใหม่ได้" : "ไม่ตรง: QR เสียหาย");
+  if (!crcOk) return fin("bad");
+  const t80 = top.find(f => f.tag === "80"), esk = t80 ? parseTLV(t80.value) : null;
+  if (!esk || sub(esk, "00") !== ESK_GUID) { add(false, "ไม่มี · เป็น QR โอนเงินเข้าบัญชีผู้ขายโดยตรง"); return fin("warn"); }
+  add(true, "ดีล " + sub(parseTLV(sub(top, "30") || ""), "02"));
+  const t82 = top.find(f => f.tag === "82"), key = CRY.pinned[sub(esk, "01")];
+  let sigOk = false;
+  if (t82 && key && top.indexOf(t82) === top.length - 2) {
+    const s = parseTLV(t82.value);
+    try { sigOk = sub(s, "00") === "ES256" && await crypto.subtle.verify(SIG, key, unb64u(sub(s, "01") || ""), enc.encode(raw.slice(0, t82.start))); } catch { sigOk = false; }
+  }
+  add(sigOk, sigOk ? "ECDSA P-256 ถูกต้อง · กุญแจ " + KID : "ลายเซ็นไม่ตรงกับข้อมูลใน QR: มีคนแก้หลังธนาคารเซ็น");
+  if (!sigOk) return fin("bad");
+  const pay = parseTLV(sub(top, "30") || "");
+  const payeeOk = sub(pay, "00") === PROMPTPAY_BILL_AID && sub(pay, "01") === ESCROW_BILLER;
+  add(payeeOk, payeeOk ? "บัญชีพักเงิน " + ESCROW_BILLER : "ผู้รับเงินไม่ใช่บัญชีพักเงิน");
+  if (!payeeOk) return fin("bad");
+  const expOk = Math.floor(Date.now() / 1000) < Number(sub(esk, "03"));
+  add(expOk, expOk ? "ใช้ได้อีก " + Math.round((Number(sub(esk, "03")) - Date.now() / 1000) / 3600) + " ชม." : "หมดอายุแล้ว");
+  const bindOk = sub(esk, "02") === await binding(BUYER.id, sub(pay, "02"));
+  add(bindOk, bindOk ? "ผูกกับบัญชีของพลอย" : "QR นี้ออกให้ผู้ซื้อคนอื่น");
+  const openOk = sub(pay, "02") === CRY.deal.id && CRY.deal.status === "awaiting";
+  add(openOk, openOk ? "ธนาคารยืนยัน: รอชำระเงิน" : "ดีลปิดแล้ว");
+  return fin(expOk && bindOk && openOk ? "ok" : "bad");
+}
+
+async function initCrypto() {
+  const kp = await crypto.subtle.generateKey(EC, true, ["sign", "verify"]);
+  CRY.priv = kp.privateKey;
+  CRY.pinned[KID] = kp.publicKey;   // in production this key ships inside the bank app
+  const spki = await crypto.subtle.exportKey("spki", kp.publicKey);
+  CRY.fp = [...new Uint8Array(await crypto.subtle.digest("SHA-256", spki))].slice(0, 6).map(b => b.toString(16).padStart(2, "0").toUpperCase()).join(":") + "…";
+  CRY.exp = Math.floor(Date.now() / 1000) + 24 * 3600;
+  CRY.bind = await binding(BUYER.id, DEAL.id);
+  QR.genuine = await buildSigned();
+  QR.tampered = editField(QR.genuine, "30", v => v.replace(tlv("01", ESCROW_BILLER), tlv("01", ATTACKER_BILLER)));
+  // the scammer's own PromptPay QR (fake, unregistered number)
+  QR.fake = withCrc(tlv("00", "01") + tlv("01", "12") + tlv("29", tlv("00", PROMPTPAY_P2P_AID) + tlv("01", "0066000000000")) + tlv("53", "764") + tlv("54", DEAL.amount.toFixed(2)) + tlv("58", "TH"));
+  for (const k of ["genuine", "tampered", "fake"]) { QR[k + "Img"] = qrImg(QR[k]); QR[k + "Check"] = await verify(QR[k]); }
+}
+
+// ================= hash-chained audit log (real SHA-256) =================
+const GENESIS = "0".repeat(64);
+const entryText = e => [e.seq, e.ts, e.actor, e.action, e.detail, e.prev].join("|");
+async function log(s, actor, action, detail) {
+  s.clock += 9000;
+  const prev = s.audit.length ? s.audit[s.audit.length - 1].hash : GENESIS;
+  const e = { seq: s.audit.length + 1, ts: s.clock, actor, action, detail, prev };
+  e.hash = await sha(entryText(e));
+  s.audit.push(e);
+}
+async function chainOk(audit) {
+  for (let i = 0; i < audit.length; i++) {
+    const e = audit[i];
+    if (e.prev !== (i ? audit[i - 1].hash : GENESIS) || await sha(entryText(e)) !== e.hash) return false;
+  }
+  return true;
+}
+
+// ================= faces (illustrations; the face match itself is simulated) =================
+const FACES = {
+  ploy:  { skin: "#f1c7a5", hair: "#2b1d16", shirt: "#e2b13c", style: "long" },
+  owner: { skin: "#e8b48f", hair: "#6b5442", shirt: "#7d9b8f", style: "bob", glasses: true },
+  scam:  { skin: "#d39b74", hair: "#1a1a1a", shirt: "#3b4a55", style: "cap" },
+};
+function face(kind) {
+  const f = FACES[kind];
+  const back = f.style === "long" ? `<path d="M29 46C27 20 73 20 71 46L74 80C66 74 60 71 57 69L43 69C40 71 34 74 26 80Z" fill="${f.hair}"/>`
+             : f.style === "bob" ? `<path d="M29 48C27 22 73 22 71 48L71 62C66 60 62 58 60 56L40 56C38 58 34 60 29 62Z" fill="${f.hair}"/>` : "";
+  const front = f.style === "cap" ? `<path d="M31 38C32 22 68 22 69 38Z" fill="#c8372d"/><path d="M50 35L82 37L80 41L50 39Z" fill="#a52b23"/><path d="M33 40C35 35 65 35 67 40" stroke="${f.hair}" stroke-width="3" fill="none"/>`
+              : `<path d="M32 42C33 25 67 25 68 42C60 33 44 33 32 42Z" fill="${f.hair}"/>`;
+  const glasses = f.glasses ? `<g fill="none" stroke="#2a2a2a" stroke-width="1.6"><circle cx="43" cy="48" r="5"/><circle cx="57" cy="48" r="5"/><path d="M48 48H52"/></g>` : "";
+  return `<svg viewBox="0 0 100 120" aria-hidden="true"><rect width="100" height="120" fill="#dfe9e4"/>${back}
+    <path d="M14 120C17 94 34 86 50 86C66 86 83 94 86 120Z" fill="${f.shirt}"/><rect x="44" y="70" width="12" height="18" rx="5" fill="${f.skin}"/>
+    <ellipse cx="50" cy="48" rx="19" ry="23" fill="${f.skin}"/>${front}
+    <circle cx="43" cy="49" r="2.2" fill="#2a2a2a"/><circle cx="57" cy="49" r="2.2" fill="#2a2a2a"/>${glasses}
+    <path d="M44 60C47 63 53 63 56 60" stroke="#8a4b3a" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`;
+}
+const scanUI = (kind, ok, okText, badText, d = 0) => `<div class="fscan">
+    <div class="oval ${ok ? "" : "bad"}">${face(kind)}<i class="scanline" style="--d:${d}s"></i></div>
+    <div class="fres ${ok ? "ok" : "bad"} popin" style="--d:${d + 1.7}s">${ok ? "✓ " + okText : "✗ " + badText}</div>
+    <div class="simtag">สแกนใบหน้าสด · จำลอง</div></div>`;
+const faceCmp = (a, b, ok, score, la, lb) => `<div class="fcmp">
+    <div class="fcol"><div class="fimg">${face(a)}</div>${la}</div>
+    <div class="fvs ${ok ? "ok" : "bad"} popin" style="--d:1.7s">${ok ? "✓" : "✗"}<small>ความเหมือน ${score}<br>เกณฑ์ 0.80</small></div>
+    <div class="fcol"><div class="fimg">${face(b)}<i class="scanline"></i></div>${lb}</div></div>`;
+
+// ================= steps =================
+// k: 0 = intro, 1–6 = the scammer's tricks, 7 = close; walls = how many tricks have been stopped so far
+const STEPS = [
+  { k: 0, chip: "เริ่มเรื่อง", title: "ดีลที่ดีเกินจริง", sub: "พลอยเจอ iPhone มือสอง ราคา ฿20,000 ในโซเชียล", t: T(13, 19, 38),
+    sp: "chat", bp: "post", fc: "cast", st: "", walls: 0,
+    note: "<b>พูด:</b> “ทางซ้ายคือพลอย ทางขวาคือผู้ขาย ซึ่งจริงๆ คือมิจฉาชีพ ตรงกลางคือ EsKrow+ ฝั่งธนาคาร เงินไหลจากซ้ายไปขวา ให้ดูว่าเงิน 20,000 บาทของพลอยไปอยู่ที่ไหน และมิจฉาชีพจะลองกี่วิธีค่ะ”",
+    apply: async s => {} },
+  { k: 1, title: "ส่ง QR พร้อมเพย์ของตัวเอง", sub: "“โอนตรงเร็วกว่า” ถ้าพลอยจ่าย เงินจะถึงมิจฉาชีพทันที", t: T(13, 19, 40),
+    sp: "sendQR", bp: "fakeQR", fc: "qrFake", st: "", walls: 1,
+    note: "<b>พูด:</b> “กลโกงแรก ส่ง QR พร้อมเพย์ของตัวเองมา แอปของพลอยตรวจก่อนจ่ายทุกครั้ง QR นี้ไม่มีลายเซ็นของธนาคาร จึงขึ้นเตือนว่าไม่ใช่ดีลคุ้มครอง พลอยเลยขอเป็นดีล EsKrow+ ค่ะ” <b>แตะ</b> “ขอดีล EsKrow+”",
+    apply: async s => { await log(s, "buyer-app", "QR_WARNING", "no EsKrow+ data · ordinary transfer"); } },
+  { k: 2, title: "สร้างดีลด้วยบัญชีม้า", sub: "ใช้บัญชีที่เช่ามา แต่ใบหน้าที่สแกนไม่ใช่เจ้าของบัญชี", t: T(13, 19, 41),
+    sp: "mule", bp: "waiting", fc: "faceMule", st: "", walls: 2,
+    note: "<b>พูด:</b> “กลโกงที่สอง สร้างดีลด้วยบัญชีม้าที่เช่ามา ทุกดีลต้องสแกนหน้าสด ระบบเทียบกับหน้าเจ้าของบัญชีที่ธนาคารมีอยู่แล้ว ไม่ตรง ก็สร้างดีลไม่ได้ บัญชีม้าจึงใช้กับ EsKrow+ ไม่ได้ค่ะ”",
+    apply: async s => { await log(s, "deal-svc", "DEAL_CREATE_DENIED", `acct ${DEAL.muleAcct} · face ≠ account owner`); } },
+  { k: 2, title: "จำใจใช้บัญชีตัวเอง", sub: "สแกนหน้าผ่าน ตรวจสถานะบัญชีสด แล้วธนาคารเซ็น QR ให้ดีลนี้", t: T(13, 19, 42),
+    sp: "own", bp: "waiting", fc: "createOwn", st: "CREATED", walls: 2,
+    note: "<b>พูด:</b> “เขาต้องใช้บัญชีและใบหน้าของตัวเอง ตอนนี้ธนาคารรู้แล้วว่าใครอยู่หลังดีลนี้ ระบบเช็กสถานะบัญชีจากระบบหลักของธนาคารสดๆ ถ้าถูกอายัดจะสร้างดีลไม่ได้ บัญชีนี้ยังไม่ถูกแจ้ง จึงผ่าน แล้วธนาคารเซ็น QR ของดีลนี้ให้ค่ะ”",
+    apply: async s => { await log(s, "deal-svc", "DEAL_CREATED", `${DEAL.id} · seller face ✓ · status ✓`); await log(s, "qr-svc", "QR_SIGNED", `ECDSA P-256 · ${KID} · for ${BUYER.id}`); } },
+  { k: 3, title: "ข้างใน QR มีอะไร", sub: "ทุกช่องถูกธนาคารเซ็นรวมกันไว้ แก้ช่องไหน ลายเซ็นก็พัง", t: T(13, 19, 42),
+    sp: "tamperPrep", bp: "waiting", fc: "qrInside", st: "CREATED", walls: 2,
+    note: "<b>พูด:</b> “กลโกงที่สาม ก่อนส่ง QR ให้พลอย เขาเปิดดูข้างใน กล้องทั่วไปเห็นแค่ตัวอักษรยาวๆ แต่แอปธนาคารอ่านออก ผู้รับเงินคือบัญชีพักเงินของธนาคาร ไม่ใช่ผู้ขาย มีเลขดีล ยอดเงิน ผูกกับพลอย มีวันหมดอายุ และท้ายสุดคือลายเซ็นของธนาคารที่ครอบทุกช่องค่ะ”",
+    apply: async s => {} },
+  { k: 3, title: "แก้ QR ให้เงินเข้าบัญชีตัวเอง", sub: "เปลี่ยนเลขผู้รับเงิน คำนวณ CRC ใหม่ แล้วส่งให้พลอย", t: T(13, 19, 43),
+    sp: "tamperSend", bp: "tampered", fc: "qrTamper", st: "CREATED", walls: 3,
+    note: "<b>พูด:</b> “เขาเปลี่ยนเลขผู้รับเงินเป็นบัญชีตัวเอง แก้ CRC ให้ถูก QR ยังสแกนได้ปกติ แต่แอปของพลอยตรวจลายเซ็นด้วยกุญแจของธนาคารที่ฝังอยู่ในแอป เปลี่ยนแค่ตัวเดียว ลายเซ็นก็ไม่ตรง แอปบอกห้ามจ่ายทันที” (ลายเซ็นตรวจจริงในหน้านี้)",
+    apply: async s => { await log(s, "buyer-app", "QR_REJECTED", "signature mismatch · payee edited"); } },
+  { k: null, chip: "ดีลดำเนินต่อ", title: "ส่ง QR ของจริง", sub: "แอปพลอยตรวจผ่านทุกข้อ แล้วบอกข้อเท็จจริงของผู้ขาย", t: T(13, 19, 44),
+    sp: "waitPay", bp: "verified", fc: "genuine", st: "CREATED", walls: 3,
+    note: "<b>พูด:</b> “เขาไม่มีทางเลือก ต้องส่ง QR ของจริง ผ่านครบ 8 ข้อ แอปยังแสดงข้อเท็จจริงของบัญชีผู้ขายจากรอบตรวจเมื่อคืน ไม่ใช่ป้ายว่าคนนี้โกง และย้ำว่าเงินถูกพักไว้เสมอ ปุ่มจ่ายนับถอยหลัง 5 วินาทีให้อ่านก่อนค่ะ” <b>แตะ</b> ปุ่มจ่ายเมื่อนับจบ",
+    apply: async s => { await log(s, "buyer-app", "QR_VERIFIED", "8/8 checks · signed by bank"); await log(s, "risk-svc", "SELLER_FACTS_SHOWN", "status live ✓ · facts from nightly batch"); } },
+  { k: null, chip: "ดีลดำเนินต่อ", title: "สัญญา + สแกนหน้าพลอย", sub: "ยืนยันว่าคนที่กดจ่ายคือเจ้าของบัญชีตัวจริง", t: T(13, 19, 45),
+    sp: "waitPay", bp: "faceScan", fc: "contract", st: "CREATED", walls: 3,
+    note: "<b>พูด:</b> “ก่อนจ่าย พลอยรับสัญญาและสแกนหน้าสด ยืนยันว่าคนที่ถือมือถืออยู่คือเจ้าของบัญชีจริง ไม่ใช่คนที่ขโมยมือถือหรือบัญชีไป สัญญานี้มีผู้ขาย พลอย และธนาคารเป็นคู่สัญญา ตาม พ.ร.บ.การดูแลผลประโยชน์ของคู่สัญญาค่ะ”",
+    apply: async s => { await log(s, "deal-svc", "CONTRACT_SIGNED", "seller face ✓ · buyer face ✓ · bank"); } },
+  { k: null, chip: "ดีลดำเนินต่อ", title: "เงินเข้าบัญชีพัก", sub: "จ่ายให้ธนาคาร ไม่ใช่ผู้ขาย ผู้ขายเห็นว่าจ่ายแล้ว แต่แตะเงินไม่ได้", t: T(13, 19, 46),
+    sp: "paidHeld", bp: "held", fc: "held", st: "HELD", walls: 3, flash: ["ploy", "esc"],
+    note: "<b>พูด:</b> “เงิน 20,000 บาทไปอยู่ในบัญชีพักของธนาคาร แยกจากเงินของผู้ขาย ผู้ขายเห็นว่าจ่ายแล้วจริง ไม่ต้องกลัวสลิปปลอม แต่ได้เงินก็ต่อเมื่อส่งเลขพัสดุ และพลอยยืนยันค่ะ”",
+    apply: async s => { s.led.ploy -= DEAL.amount; s.led.esc += DEAL.amount; s.led.status = "held"; CRY.deal.status = "held"; await log(s, "payment-svc", "FUNDS_HELD", `${thb(DEAL.amount)} → escrow account`); } },
+  { k: 4, branch: true, chip: "ทางแยก · ถ้า…", title: "รับเงินแล้วหายเงียบ", sub: "ถ้าผู้ขายไม่ส่งเลขพัสดุภายใน 48 ชม.", t: T(15, 19, 46),
+    sp: "expired", bp: "expired", fc: "expired", st: "EXPIRED", walls: 4, flash: ["esc", "ploy"],
+    note: "<b>พูด:</b> “กลโกงที่สี่ ลองดูทางแยกก่อน ถ้าเขารับเงินแล้วหายเงียบ ไม่ส่งเลขพัสดุภายใน 48 ชั่วโมง สัญญาหมดอายุ เงินคืนพลอยเต็มจำนวนอัตโนมัติ ไม่ต้องตามเอง ไม่ต้องรอใครตัดสินค่ะ แต่ผู้ขายรายนี้เลือกอีกทาง…”",
+    apply: async s => { s.led.esc -= DEAL.amount; s.led.ploy += DEAL.amount; s.led.status = "expired"; await log(s, "deal-svc", "CONTRACT_EXPIRED", "no shipment ID in 48 h"); await log(s, "payment-svc", "REFUND_ISSUED", `${thb(DEAL.amount)} → buyer`); } },
+  { k: 5, chip: "กลับมาที่เรื่องจริง", title: "ส่งเลขพัสดุปลอม", sub: "ผู้ขายส่งเลขพัสดุ พลอยเช็กกับขนส่งเองก่อนยืนยัน", t: T(14, 10, 15),
+    sp: "ship", bp: "checkShip", fc: "ship", st: "SHIPPED", walls: 4,
+    note: "<b>พูด:</b> “กลโกงที่ห้า เขาส่งเลขพัสดุมา พลอยเปิดแอปขนส่งเช็กเอง เลขมีจริง แต่ผู้รับไม่ใช่เธอ ปลายทางเชียงใหม่ และสร้างก่อนดีลนี้สองวัน ธนาคารไม่ต้องเชื่อม API ขนส่ง สัญญาบอกพลอยว่าต้องเทียบอะไร” <b>แตะ</b> “รายงานปัญหา”",
+    apply: async s => { await log(s, "seller", "SHIPMENT_ID_SENT", `Flash Express ${DEAL.track}`); await log(s, "deal-svc", "BUYER_NOTIFIED", "check · confirm or report · 24 h"); } },
+  { k: 5, title: "พลอยกดรายงาน", sub: "เงินยังพักอยู่ ธนาคารไม่ตัดสิน ให้ทั้งสองฝ่ายตกลงกันเอง", t: T(14, 10, 20),
+    sp: "dispute", bp: "reported", fc: "dispute", st: "DISPUTED", walls: 5,
+    note: "<b>พูด:</b> “พลอยกดรายงาน ใส่เหตุผลและภาพหน้าจอ เงินยังพักอยู่ ธนาคารไม่ตัดสินว่าใครถูก ทั้งสองฝ่ายตกลงกันเองภายใน 3 วัน แล้วกดยืนยันผลในแอป ยกเลิก คืนบางส่วน หรือส่งใหม่ค่ะ”",
+    apply: async s => { s.led.status = "disp"; await log(s, "buyer", "BUYER_REPORTED", "wrong recipient + destination · screenshot"); await log(s, "deal-svc", "DISPUTE_OPENED", "funds held · 3 days to settle"); } },
+  { k: 5, title: "ตกลงกันไม่ได้ → แจ้งความ", sub: "พลอยดาวน์โหลด Evidence Pack ไปแจ้งความ แล้วยื่นในแอป", t: T(17, 11, 0),
+    sp: "reportedS", bp: "police", fc: "evidence", st: "REPORTED", walls: 5,
+    note: "<b>พูด:</b> “ผู้ขายไม่ยอมยกเลิก พลอยดาวน์โหลด Evidence Pack ที่หลักฐานผูก hash ไว้ ไปแจ้งความ แล้วยื่นใบแจ้งความในแอปภายใน 4 วัน เงินจึงพักต่อจนมีคำสั่งเจ้าหน้าที่หรือคำพิพากษา ถ้าคนรายงานไม่ยื่น เงินจะไปผู้ขาย ผู้ขายสุจริตจึงไม่ถูกแช่เงินไม่รู้จบค่ะ”",
+    apply: async s => { s.led.status = "rep"; await log(s, "deal-svc", "SETTLEMENT_WINDOW_ENDED", "no agreement in 3 days"); await log(s, "buyer", "EVIDENCE_PACK_DOWNLOADED", "PDF + QR · hash-linked"); await log(s, "buyer", "POLICE_REPORT_SUBMITTED", "within 4 days · funds held until order"); } },
+  { k: 6, dim: true, title: "ติดสินบนพนักงานธนาคาร", sub: "สั่งปล่อยเงินดีลที่มีใบแจ้งความ ตอนตีสอง", t: T(18, 2, 14),
+    sp: "seller", bp: "seller", fc: "insider", st: "REPORTED", walls: 5,
+    note: "<b>พูด:</b> “กลโกงสุดท้าย ภายนอกเจาะไม่ได้ เลยติดสินบนพนักงานธนาคาร ตีสองเขากดปล่อยเงิน ชนกำแพง 4 ชั้น Zero-Trust เครื่องไม่รู้จัก RBAC ตำแหน่งนี้ปล่อยเงินไม่ได้ Policy ดีลนี้มีใบแจ้งความ และต้องมีคนอนุมัติ 2 คนจากทีมอื่นค่ะ”",
+    apply: async s => { await log(s, "admin:ops07", "ADMIN_LOGIN", "unmanaged laptop · first seen"); await log(s, "admin:ops07", "FORCE_RELEASE_REQUESTED", `${thb(DEAL.amount)} → seller`); await log(s, "policy-engine", "REQUEST_DENIED", "zero-trust · rbac · policy · 0/2 approvals"); } },
+  { k: 6, dim: true, title: "แก้ log เพื่อลบร่องรอย", sub: "เปลี่ยน “พลอยรายงาน” เป็น “พลอยยืนยัน” ในฐานข้อมูล", t: T(18, 2, 16),
+    sp: "seller", bp: "seller", fc: "tamperLog", st: "REPORTED", walls: 6,
+    note: "<b>พูด:</b> “เขาแก้ log ในฐานข้อมูลว่าพลอยยืนยันแล้ว แต่ทุกบรรทัดผูก hash กับบรรทัดก่อนหน้า แก้คำเดียว chain ขาดทันที ระบบล็อกบัญชีพนักงานและเปิดการสอบสวน” (hash คำนวณจริงในหน้านี้)",
+    apply: async s => {
+      const e = s.audit.find(x => x.action === "BUYER_REPORTED");
+      s.tamper = { seq: e.seq, before: e.action, stored: e.hash };
+      e.action = "BUYER_CONFIRMED"; e.detail = "shipment OK · release to seller";
+      s.tamper.recomputed = await sha(entryText(e));
+      s.tamper.next = s.audit[e.seq].prev;
+      await log(s, "integrity-monitor", "INTEGRITY_ALERT", `entry #${e.seq} altered · secops paged`);
+      await log(s, "secops", "ACCOUNTS_LOCKED", "ops07 · investigation opened");
+    } },
+  { k: 7, chip: "สรุป", title: "กลโกง 6 แบบ ไม่ได้เงินสักบาท", sub: "มีคำสั่งจากเจ้าหน้าที่ เงินคืนพลอยเต็มจำนวน", t: T(22, 14, 0),
+    sp: "frozen", bp: "refunded", fc: "summary", st: "REFUNDED", walls: 6, flash: ["esc", "ploy"],
+    note: "<b>พูด:</b> “หกวิธี มิจฉาชีพไม่ได้เงินสักบาท พลอยได้เงินคืนเต็มจำนวน ส่วนผู้ขายสุจริต ได้เงินทันทีที่ผู้ซื้อยืนยัน EsKrow+ ไม่ได้ให้ใครต้องเชื่อคนแปลกหน้า แค่เชื่อกติกาที่ธนาคารถือไว้ค่ะ”",
+    apply: async s => { await log(s, "case-svc", "AUTHORITY_ORDER", "refund to buyer"); s.led.esc -= DEAL.amount; s.led.ploy += DEAL.amount; s.led.status = "refunded"; await log(s, "payment-svc", "REFUND_ISSUED", `${thb(DEAL.amount)} → buyer`); } },
+];
+const TRICKS = ["QR ไม่มีลายเซ็น → แอปเตือน", "หน้าไม่ตรงเจ้าของบัญชี → สร้างดีลไม่ได้", "แก้ QR → ลายเซ็นพัง ห้ามจ่าย",
+  "หายเงียบ 48 ชม. → คืนเงินอัตโนมัติ", "พัสดุปลอม → รายงาน เงินพักต่อ", "คนในธนาคาร → 4 กำแพง + hash chain"];
+
+// ================= phone screens =================
+const head = (title, sub, seller) => `<div class="apphead ${seller ? "seller" : ""}"><b>${title}</b><small>${sub}</small></div>`;
+const EK = sub => head("EsKrow+", sub || "ในแอปธนาคาร");
+const EKS = sub => head("EsKrow+ · ผู้ขาย", sub || "ในแอปธนาคาร", true);
+const tl = items => `<ul class="tl">${items.map(([cls, sym, b, sm]) => `<li class="${cls}"><span class="dot">${sym}</span><span><b>${b}</b>${sm ? `<small>${sm}</small>` : ""}</span></li>`).join("")}</ul>`;
+const dealCard = (d = 0) => `<div class="pcard in" style="--d:${d}s"><div class="field">ดีล ${DEAL.id}</div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:2px"><b style="font-size:16px">${DEAL.item}</b><b style="font-size:19px">${thb(DEAL.amount)}</b></div>
+  <div class="field">${DEAL.tag}</div></div>`;
+const createForm = (acct, d = 0) => `<div class="pcard fields in" style="--d:${d}s">
+  <div class="field">สินค้า<b>${DEAL.item}</b></div><div class="field">ราคา<b>${thb(DEAL.amount)}</b></div>
+  <div class="field">ผู้ซื้อ · ที่อยู่จัดส่ง<b>${BUYER.name} · ${BUYER.addr}</b></div>
+  <div class="field">บัญชีรับเงิน<b>${acct}</b></div></div>`;
+
+const SP = {   // seller (scammer) phone
+  chat: () => `${head("แชท · ploy.s", "Instagram", true)}<div class="pbody"><div class="chat in">
+      <div class="bubble">สนใจ iPhone ค่ะ ยังอยู่ไหมคะ</div>
+      <div class="bubble me">อยู่ค่า มือสองสภาพดี ฿20,000 โอนก่อนส่งวันนี้เลย 🚚</div></div></div>`,
+  sendQR: () => `${head("แชท · ploy.s", "Instagram", true)}<div class="pbody"><div class="chat">
+      <div class="bubble me in">โอนเข้าบัญชีนี้ได้เลยค่า เร็วกว่า 🙏<img src="${QR.fakeImg}" alt="QR พร้อมเพย์ของผู้ขาย"></div>
+      <div class="bubble in" style="--d:1.6s">ขอเป็นดีล EsKrow+ นะคะ</div></div></div>`,
+  mule: () => `${EKS("สร้างดีลคุ้มครอง")}<div class="pbody">${createForm(DEAL.mule + " · " + DEAL.muleAcct + " (เช่ามา)")}
+      ${scanUI("scam", false, "", "ใบหน้าไม่ตรงกับเจ้าของบัญชี", .4)}
+      <div class="alert a-bad popin" style="--d:2.2s"><h3>สร้างดีลไม่ได้</h3><p>บันทึกความพยายามไว้แล้ว</p></div></div>`,
+  own: () => `${EKS("สร้างดีลคุ้มครอง")}<div class="pbody">${createForm(DEAL.seller + " · " + DEAL.sellerAcct)}
+      ${scanUI("scam", true, "เจ้าของบัญชีตัวจริง", "", .4)}
+      <div class="alert a-ok popin" style="--d:2.2s"><h3>สร้างดีลแล้ว · ${DEAL.id}</h3><p>ได้ QR ที่ธนาคารเซ็นสำหรับพลอย</p></div></div>`,
+  tamperPrep: () => `${head("QR Editor", "แอปแก้ QR · เครื่องของผู้ขาย", true)}<div class="pbody">
+      <div class="pcard in center"><img src="${QR.genuineImg}" alt="QR ดีล" style="width:170px;height:170px;image-rendering:pixelated"></div>
+      <div class="pcard fields in" style="--d:.3s"><div class="field">ผู้รับเงิน (tag 30)<b class="mono">${ESCROW_BILLER}</b></div>
+        <div class="field">ยอดเงิน (tag 54)<b>${DEAL.amount.toFixed(2)}</b></div><div class="field">ลายเซ็น (tag 82)<b>ES256 · แก้ไม่ได้ถ้าไม่มีกุญแจธนาคาร</b></div></div></div>`,
+  tamperSend: () => `${head("QR Editor", "แอปแก้ QR · เครื่องของผู้ขาย", true)}<div class="pbody">
+      <div class="pcard fields in"><div class="field">ผู้รับเงิน (tag 30)<b class="mono"><s style="color:var(--muted)">${ESCROW_BILLER}</s><br><span style="color:var(--bad)">${ATTACKER_BILLER}</span></b></div>
+        <div class="field">CRC (tag 63)<b>คำนวณใหม่ ✓</b></div></div>
+      <div class="pcard center in" style="--d:.3s"><img src="${QR.tamperedImg}" alt="QR ที่ถูกแก้" style="width:150px;height:150px;image-rendering:pixelated"></div>
+      <div class="spacer"></div><button class="pbtn dark in" style="--d:.5s">ส่งให้ ploy.s ในแชท</button></div>`,
+  waitPay: () => `${EKS("ดีล " + DEAL.id)}<div class="pbody">${dealCard()}
+      <div class="alert a-hold in" style="--d:.2s"><h3>รอผู้ซื้อชำระเงิน</h3><p>ส่ง QR ของจริงแล้ว</p></div></div>`,
+  paidHeld: () => `${EKS("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="notif popin"><span class="ic">฿</span><span><b>ผู้ซื้อจ่ายแล้ว ${thb(DEAL.amount)}</b>เงินพักอยู่ที่ธนาคาร</span></div>
+      ${dealCard(.2)}<div class="pcard fields in" style="--d:.4s"><div class="field">ส่งเลขพัสดุภายใน<b>48 ชม. · ถึง 15 ต.ค. 19:46</b></div>
+        <div class="field">ได้เงินเมื่อ<b>ผู้ซื้อยืนยัน หรือครบ 24 ชม. ไม่มีใครรายงาน</b></div></div></div>`,
+  expired: () => `${EKS("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="alert a-bad popin"><h3>ดีลหมดอายุ</h3><p>ไม่ได้ส่งเลขพัสดุภายใน 48 ชม. เงินคืนผู้ซื้อแล้ว</p></div>${dealCard(.3)}</div>`,
+  ship: () => `${EKS("ดีล " + DEAL.id)}<div class="pbody">${dealCard()}
+      <div class="pcard fields in" style="--d:.2s"><div class="field">บริษัทขนส่ง<b>Flash Express</b></div><div class="field">เลขพัสดุ<b class="mono">${DEAL.track}</b></div></div>
+      <div class="alert a-ok popin" style="--d:.5s"><p>✓ ส่งเลขพัสดุให้ผู้ซื้อแล้ว</p></div></div>`,
+  dispute: () => `${EKS("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="notif popin"><span class="ic">!</span><span><b>ผู้ซื้อรายงานปัญหา</b>เงินยังพักอยู่ · ตกลงกันเองภายใน 3 วัน</span></div>
+      <div class="pcard fields in" style="--d:.3s"><div class="field">เลือกผลที่ตกลงกัน<b>ยกเลิก · คืนบางส่วน · ส่งใหม่</b></div></div>
+      <div class="bubble me in" style="--d:.6s;align-self:flex-end">ไม่ยกเลิกค่ะ ส่งของไปแล้ว</div></div>`,
+  reportedS: () => `${EKS("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="alert a-hold popin"><h3>ผู้ซื้อยื่นใบแจ้งความแล้ว</h3><p>เงินพักต่อจนมีคำสั่งเจ้าหน้าที่หรือคำพิพากษา</p></div>${dealCard(.3)}</div>`,
+  seller: () => `${EKS("ดีล " + DEAL.id)}<div class="pbody">${dealCard()}</div>`,
+  frozen: () => `${EKS("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="alert a-bad popin"><h3>ดีลปิดตามคำสั่งเจ้าหน้าที่</h3><p>เงินคืนผู้ซื้อ · บัญชีและใบหน้าของคุณผูกกับคดีแล้ว</p></div>${dealCard(.3)}</div>`,
+};
+
+const BP = {   // buyer (Ploy) phone
+  post: () => `<div class="feedhead">feed</div>
+    <div class="post-top"><div class="avatar">iP</div><div><b>${DEAL.tag}</b><div class="field">กรุงเทพฯ · 2 ชม.</div></div></div>
+    <div class="post-img"><div class="ph"></div><span class="price-tag">${thb(DEAL.amount)}</span></div>
+    <div class="caption"><b>${DEAL.tag}</b> iPhone 15 128GB มือสอง สภาพ 99% 🔥 เหลือ 20,000 บาท โอนก่อน ส่งไวภายในวันนี้ 🚚 ทักแชทเลย</div>`,
+  fakeQR: () => `${head("สแกนจ่าย", "แอปธนาคาร")}<div class="pbody">
+      <div class="checking" style="--d:1.2s"><div class="spinner"></div>กำลังตรวจ QR…</div>
+      <div class="alert a-bad popin" style="--d:1.3s"><h3>⚠ ไม่ใช่ดีลคุ้มครอง</h3><p>QR นี้<b>ไม่มีลายเซ็นธนาคาร</b> เป็นการโอนตรงเข้าบัญชีผู้ขาย ถ้าไม่ได้ของ เงินก็หายไป</p></div>
+      <div class="pcard fields in" style="--d:1.5s"><div class="field">โอนให้<b>พร้อมเพย์ 0066000000000</b></div><div class="field">ยอดเงิน<b>${thb(DEAL.amount)}</b></div></div>
+      <div class="spacer"></div><button class="pbtn tap" data-next style="--d:1.8s">ขอดีล EsKrow+</button>
+      <button class="pbtn ghost in" data-noop style="--d:1.9s">จ่ายต่อ</button></div>`,
+  waiting: () => `${head("แชท · " + DEAL.tag, "Instagram")}<div class="pbody"><div class="chat">
+      <div class="bubble me">ขอเป็นดีล EsKrow+ นะคะ</div><div class="bubble">ได้ค่า รอแป๊บนึงนะคะ</div></div>
+      <div class="spacer"></div><div class="center field"><div class="spinner" style="margin:0 auto 10px"></div>รอผู้ขายสร้างดีล…</div><div class="spacer"></div></div>`,
+  tampered: () => `${head("สแกนจ่าย", "แอปธนาคาร")}<div class="pbody">
+      <div class="chat in"><div class="who">${DEAL.tag}</div><div class="bubble">สร้างให้แล้วค่า ✅<img src="${QR.tamperedImg}" alt="QR ที่ได้รับ"></div></div>
+      <div class="checking" style="--d:1.6s"><div class="spinner"></div>กำลังตรวจลายเซ็นธนาคาร…</div>
+      <div class="alert a-bad popin" style="--d:1.7s"><h3>✗ QR นี้ถูกแก้ไข ห้ามจ่าย</h3><p>ลายเซ็นของธนาคารไม่ตรงกับข้อมูลใน QR มีคนแก้หลังธนาคารออกให้</p></div>
+      <div class="spacer"></div><button class="pbtn ghost in" style="--d:1.9s">แจ้งผู้ขายให้ส่ง QR ใหม่</button></div>`,
+  verified: () => `${EK("ตรวจผู้ขาย")}<div class="pbody">
+      <div class="alert a-ok popin"><h3>✓ ดีล EsKrow+ ของจริง</h3><p>ธนาคารเซ็นรับรอง ออกให้คุณโดยเฉพาะ</p></div>
+      ${dealCard(.2)}
+      <div class="alert a-hold in" style="--d:.4s"><h3>สิ่งที่ควรรู้ก่อนจ่าย</h3><ul><li>บัญชีเปิดไม่ถึง 1 เดือน</li><li>ยังไม่มีดีลที่สำเร็จ</li></ul></div>
+      <div class="field in" style="--d:.5s">ไม่ว่าเลือกผู้ขายคนไหน เงินของคุณพักไว้กับธนาคารจนกว่าคุณจะยืนยันพัสดุ</div>
+      <div class="spacer"></div><button class="pbtn tap" data-next id="payBtn" style="--d:.7s">ไปต่อ: สัญญาและสแกนหน้า</button></div>`,
+  faceScan: () => `${EK("สัญญา · ยืนยันตัวตน")}<div class="pbody">
+      <div class="pcard fields in"><div class="field">ส่งเลขพัสดุ<b>ภายใน 48 ชม. ไม่ส่ง = คืนเงินเต็ม</b></div>
+        <div class="field">จ่ายผู้ขายเมื่อ<b>คุณยืนยัน หรือ 24 ชม. ไม่มีรายงาน</b></div></div>
+      ${scanUI("ploy", true, "คุณคือเจ้าของบัญชีนี้", "", .3)}
+      <div class="spacer"></div><button class="pbtn tap" data-next style="--d:2.2s">จ่าย ${thb(DEAL.amount)} เข้าบัญชีพัก</button></div>`,
+  held: s => `${EK("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="alert a-hold popin center" style="padding:18px"><div style="font-size:34px">🔒</div><div class="big-money">${thb(DEAL.amount)}</div><p>ธนาคารพักไว้ ผู้ขายยังแตะไม่ได้</p></div>
+      <div class="pcard in" style="--d:.3s">${tl([["done", "✓", "สัญญา + สแกนหน้า", "13 ต.ค. 19:45"], ["hold", "✓", "จ่ายเข้าบัญชีพัก", "13 ต.ค. 19:46"],
+        ["", "3", "ผู้ขายส่งเลขพัสดุ", "ภายใน 15 ต.ค. 19:46"], ["", "4", "คุณเช็กกับขนส่ง แล้วยืนยัน", "หรือกดรายงาน"]])}</div>
+      <div class="field center in" style="--d:.5s">ยอดคงเหลือ ${thb(s.led.ploy)}</div></div>`,
+  expired: s => `${EK("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="notif popin"><span class="ic">฿</span><span><b>เงินเข้า ${thb(DEAL.amount)}</b>คืนเงินจาก EsKrow+ ดีล ${DEAL.id}</span></div>
+      <div class="alert a-ok popin center" style="--d:.3s;padding:20px"><div style="font-size:40px">✓</div><div class="big-money">คืนเต็ม</div><p>ผู้ขายไม่ส่งเลขพัสดุใน 48 ชม. ไม่ต้องตามเอง</p></div>
+      <div class="field center in" style="--d:.5s">ยอดคงเหลือ ${thb(s.led.ploy)}</div></div>`,
+  checkShip: () => `${EK("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="notif popin"><span class="ic">📦</span><span><b>ผู้ขายส่งเลขพัสดุแล้ว</b>เช็กกับขนส่ง แล้วกดยืนยันหรือรายงาน</span></div>
+      <div class="pcard fields in" style="--d:.3s"><div class="field">สัญญาของคุณระบุ<b>${BUYER.name} · ${BUYER.addr}</b></div></div>
+      <div class="pcard in" style="--d:.5s;border-color:var(--bad)"><div class="field" style="font-weight:600">แอป Flash Express · ${DEAL.track}</div>
+        <div class="fields" style="margin-top:6px"><div class="field">ผู้รับ<b style="color:var(--bad)">ส*** ก.</b></div>
+        <div class="field">ปลายทาง<b style="color:var(--bad)">เชียงใหม่ 50200</b></div><div class="field">สร้างเมื่อ<b style="color:var(--bad)">11 ต.ค. 15:20</b></div></div></div>
+      <div class="spacer"></div><button class="pbtn ghost in" data-noop="ในเดโม พลอยกดรายงานแทน" style="--d:.8s">ยืนยัน · จ่ายผู้ขาย</button>
+      <button class="pbtn red tap" data-next style="--d:.9s">รายงานปัญหา</button></div>`,
+  reported: () => `${EK("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="alert a-hold popin"><h3>🔒 ${thb(DEAL.amount)} ยังพักอยู่</h3><p>ข้อพิพาทเปิดแล้ว ผู้ขายแตะเงินไม่ได้</p></div>
+      <div class="pcard fields in" style="--d:.3s"><div class="field">เหตุผล<b>ผู้รับและปลายทางไม่ตรงสัญญา</b></div><div class="field">แนบ<b>✓ ภาพหน้าจอแอปขนส่ง</b></div></div>
+      <div class="pcard in" style="--d:.5s">${tl([["fail", "!", "คุณรายงานปัญหา", "14 ต.ค. 10:20"], ["hold", "3", "ตกลงกันเองกับผู้ขาย", "ภายใน 3 วัน · ยืนยันผลในแอป"], ["", "4", "ไม่จบ: ยื่นใบแจ้งความ", "ภายใน 4 วัน"]])}</div></div>`,
+  police: () => `${EK("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="pcard in fields"><div class="field">Evidence Pack<b>✓ ดาวน์โหลดแล้ว (PDF + QR)</b></div><div class="field">ใบแจ้งความ<b>✓ ยื่นในแอปแล้ว · 17 ต.ค.</b></div></div>
+      <div class="alert a-hold popin" style="--d:.3s"><h3>เงินพักต่อ</h3><p>จนมีคำสั่งเจ้าหน้าที่หรือคำพิพากษา คุณไม่ต้องทำอะไรเพิ่ม</p></div>
+      <div class="pcard in" style="--d:.5s">${tl([["fail", "!", "รายงานปัญหา", "14 ต.ค."], ["fail", "✗", "ตกลงกันไม่ได้", "ครบ 3 วัน"], ["hold", "✓", "ยื่นใบแจ้งความ", "17 ต.ค."]])}</div></div>`,
+  seller: () => `${EK("ดีล " + DEAL.id)}<div class="pbody">${dealCard()}</div>`,
+  refunded: s => `${EK("ดีล " + DEAL.id)}<div class="pbody">
+      <div class="notif popin"><span class="ic">฿</span><span><b>เงินเข้า ${thb(DEAL.amount)}</b>คืนเงินตามคำสั่งเจ้าหน้าที่</span></div>
+      <div class="alert a-ok popin center" style="--d:.3s;padding:20px"><div style="font-size:40px">✓</div><div class="big-money">${thb(DEAL.amount)}</div><p>คืนเข้าบัญชีของคุณแล้ว</p></div>
+      <div class="field center in" style="--d:.5s">ยอดคงเหลือ ${thb(s.led.ploy)}</div></div>`,
+};
+
+// ================= centre: EsKrow+ view =================
+// checks after the first failure are not run; they collapse into one line. compact hides the reason on passed checks.
+const chkList = (res, d0 = .2, compact = false) => {
+  const run = res.checks.filter(c => c.ok !== null), skipped = res.checks.length - run.length;
+  const rows = run.map((c, i) => {
+    const cls = c.ok ? "ok" : (res.verdict === "warn" ? "warn" : "bad");
+    const sym = c.ok ? "✓" : (res.verdict === "warn" ? "!" : "✗");
+    const why = c.why && !(compact && c.ok) ? `<small>${esc(c.why)}</small>` : "";
+    return `<div class="chk ${cls} in" style="--d:${d0 + i * .14}s"><span class="s">${sym}</span><span>${c.name}${why}</span></div>`;
+  });
+  if (skipped) rows.push(`<div class="chk skip in" style="--d:${d0 + run.length * .14}s"><span class="s">–</span><span>อีก ${skipped} ข้อไม่ต้องตรวจต่อ<small>หยุดตั้งแต่ข้อแรกที่ไม่ผ่าน</small></span></div>`);
+  return `<div class="checks">${rows.join("")}</div>`;
+};
+const GROUP = { "30": "pay", "54": "pay", "53": "pay", "58": "pay", "00": "pay", "01": "pay", "59": "disp", "60": "disp", "80": "esk", "81": "disp", "82": "sig", "63": "crc" };
+const rawColored = (payload, hitTag) => parseTLV(payload).map(f => `<span class="seg g-${GROUP[f.tag] || "pay"} ${f.tag === hitTag ? "hit" : ""}">${esc(payload.slice(f.start, f.end))}</span>`).join("");
+const short = (s, n) => s.length > n ? s.slice(0, n) + "…" : s;
+
+const FC = {
+  cast: () => `<h2>ใครเป็นใครในเดโมนี้</h2>
+    <div class="cast"><div class="role in" style="--d:.1s"><b>พลอย</b>First Jobber อายุ 24 อยากได้ iPhone มือสองราคาดี</div>
+      <div class="role sysr in" style="--d:.25s"><b>EsKrow+</b>กติกาที่ธนาคารถือไว้ อยู่ในแอปธนาคารที่ทุกคนใช้อยู่แล้ว</div>
+      <div class="role badr in" style="--d:.4s"><b>ผู้ขาย</b>มิจฉาชีพ อยากได้เงิน 20,000 บาท โดยไม่ส่งของ</div></div>
+    <p class="in" style="--d:.6s">ดูช่องด้านบน: เงิน 20,000 บาทของพลอยจะย้ายไปไหน และมิจฉาชีพจะลองกี่วิธี</p>
+    <div class="foot">มือถือสองเครื่องคือสิ่งที่แต่ละคนเห็น ตรงกลางคือสิ่งที่ระบบทำเบื้องหลัง</div>`,
+  qrFake: () => `<h2>แอปของพลอยตรวจ QR ก่อนจ่ายทุกครั้ง <span class="tag gray">ตรวจจริงในหน้านี้</span></h2>
+    ${chkList(QR.fakeCheck)}
+    <div class="verdict v-warn in" style="--d:1.4s">ไม่ใช่ดีลคุ้มครอง<small>QR นี้โอนตรงเข้าบัญชีผู้ขาย ไม่มีเงินพัก ไม่มีสัญญา</small></div>`,
+  faceMule: () => `<h2>ทุกดีลต้องสแกนหน้าสด เทียบกับเจ้าของบัญชี</h2>
+    ${faceCmp("owner", "scam", false, "0.21", "ใบหน้าเจ้าของบัญชี<br><b>" + DEAL.mule + "</b> (ข้อมูลยืนยันตัวตนของธนาคาร)", "คนที่สแกนอยู่ตอนนี้")}
+    <div class="verdict v-bad in" style="--d:2s">สร้างดีลไม่ได้<small>คนที่ใช้บัญชีไม่ใช่เจ้าของ: บัญชีม้าใช้กับ EsKrow+ ไม่ได้</small></div>
+    <div class="foot">การเทียบใบหน้าในเดโมนี้เป็นการจำลอง ของจริงใช้ระบบสแกนใบหน้าตามเกณฑ์ ธปท. ที่แอปธนาคารมีอยู่แล้ว</div>`,
+  createOwn: () => `<h2>ใช้บัญชีตัวเอง: ธนาคารรู้ว่าใครอยู่หลังดีลนี้</h2>
+    <div class="checks">
+      <div class="chk ok in" style="--d:.2s"><span class="s">✓</span><span>สแกนหน้าตรงกับเจ้าของบัญชี<small>${DEAL.seller} · ${DEAL.sellerAcct}</small></span></div>
+      <div class="chk ok in" style="--d:.4s"><span class="s">✓</span><span>สถานะบัญชีจากระบบหลักของธนาคาร (ตรวจสด)<small>ไม่ถูกอายัด · บัญชีที่ถูกอายัดผ่าน AOC 1441 สร้างดีลไม่ได้</small></span></div>
+      <div class="chk ok in" style="--d:.6s"><span class="s">✓</span><span>ธนาคารเซ็น QR ของดีลนี้<small>ECDSA P-256 · กุญแจ ${KID} · fingerprint ${CRY.fp}</small></span></div></div>
+    <div class="row2 in" style="--d:.8s"><div class="pcard"><div class="field">ทะเบียนดีล (ฐานข้อมูลธนาคาร)<b>${DEAL.id} · รอชำระเงิน</b></div></div>
+      <div class="pcard"><div class="field">ออกให้ผู้ซื้อ<b>${BUYER.name} เท่านั้น · หมดอายุใน 24 ชม.</b></div></div></div>
+    <div class="foot">ในระบบจริง กุญแจเซ็นอยู่ใน HSM ของธนาคาร ส่วนกุญแจสาธารณะฝังอยู่ในแอป</div>`,
+  qrInside: () => {
+    const top = parseTLV(QR.genuine), t30 = parseTLV(sub(top, "30")), t80 = parseTLV(sub(top, "80")), t82 = parseTLV(sub(top, "82"));
+    return `<h2>ข้างใน QR ของดีลนี้</h2>
+    <div class="qrraw in"><span class="lbl">กล้องทั่วไปเห็นแค่นี้</span>${rawColored(QR.genuine)}</div>
+    <div class="ftab in" style="--d:.5s">
+      <div class="t g-pay">30</div><div class="n">ผู้รับเงิน</div><div class="v">บัญชีพักเงินของธนาคาร ${sub(t30, "01")} · ดีล ${sub(t30, "02")}</div>
+      <div class="t g-pay">54</div><div class="n">ยอดเงิน</div><div class="v">${sub(top, "54")} บาท</div>
+      <div class="t g-esk">80</div><div class="n">ข้อมูล EsKrow+</div><div class="v">กุญแจ ${sub(t80, "01")} · ผูกกับพลอย ${sub(t80, "02")} · หมดอายุใน 24 ชม.</div>
+      <div class="t g-disp">81</div><div class="n">แสดงให้ผู้ซื้อเห็น</div><div class="v">${esc(DEAL.tag)} · ${DEAL.item}</div>
+      <div class="t g-sig">82</div><div class="n">ลายเซ็นธนาคาร</div><div class="v mono">${sub(t82, "00")} · ${short(sub(t82, "01"), 34)}</div>
+      <div class="t g-crc">63</div><div class="n">CRC</div><div class="v">${sub(top, "63")} · กันแค่ข้อมูลเสียหาย ไม่ได้กันการแก้</div></div>
+    <div class="foot in" style="--d:.8s"><b>ลายเซ็นครอบทุกช่องก่อนหน้า</b> ใครแก้ช่องไหน ต้องมีกุญแจของธนาคารเพื่อเซ็นใหม่ ซึ่งมิจฉาชีพไม่มี</div>`;
+  },
+  qrTamper: () => `<h2>เปลี่ยนแค่เลขผู้รับเงิน <span class="tag gray">ลายเซ็นตรวจจริงในหน้านี้</span></h2>
+    <div class="diff in"><span>ผู้รับเงิน</span><span class="mono"><span class="old">${ESCROW_BILLER}</span> → <span class="new">${ATTACKER_BILLER}</span></span>
+      <span>CRC</span><span>คำนวณใหม่ให้ถูก ✓</span></div>
+    ${chkList(QR.tamperedCheck, .4)}
+    <div class="verdict v-bad in" style="--d:1.7s">ห้ามจ่าย: QR ถูกแก้<small>ธนาคารไม่ได้เซ็นข้อมูลชุดนี้ แอปหยุดก่อนเงินจะออก</small></div>`,
+  genuine: () => `<div class="row2" style="align-items:start">
+      <div><h2 style="margin-bottom:10px">QR ของจริง: ผ่าน 8/8</h2>${chkList(QR.genuineCheck, .1, true)}</div>
+      <div><h2 style="margin-bottom:10px">ตรวจผู้ขาย</h2>
+        <div class="checks"><div class="chk ok in" style="--d:.3s"><span class="s">✓</span><span>สถานะบัญชี (ตรวจสด)<small>ไม่ถูกอายัด</small></span></div></div>
+        <div class="pcard in" style="--d:.5s;margin-top:10px"><span class="tag gold">ผลตรวจแบบ batch เมื่อคืน 02:00</span>
+          <div class="field" style="margin-top:8px">ข้อเท็จจริงที่แสดงให้ผู้ซื้อ<b>บัญชีเปิด 9 วัน · ยังไม่มีดีลสำเร็จ</b></div>
+          <div class="field" style="margin-top:6px">ไม่มีป้าย “เสี่ยง” ไม่มีคะแนน<b>ผู้ซื้อตัดสินใจเอง เงินพักไว้เสมอ</b></div></div>
+        <p class="in" style="--d:.7s;font-size:15.5px;color:var(--muted);margin-top:10px">ตัวช่วยเสริม ไม่ใช่ตัวหลัก ตรวจตอนเซิร์ฟเวอร์ว่าง จึงไม่ถ่วงการโอน</p></div></div>`,
+  contract: () => `<h2>สัญญา 1 ฉบับต่อดีล · สแกนหน้าทั้งสองฝ่าย</h2>
+    ${faceCmp("ploy", "ploy", true, "0.97", "ใบหน้าเจ้าของบัญชี<br><b>" + BUYER.name + "</b> (ข้อมูลยืนยันตัวตนของธนาคาร)", "คนที่ถือมือถืออยู่ตอนนี้")}
+    <div class="terms in" style="--d:2s"><div>คู่สัญญา</div><div>ผู้ขาย (สแกนหน้า ✓ 19:42) · พลอย (สแกนหน้า ✓ 19:45) · ธนาคาร</div>
+      <div>ส่งเลขพัสดุ</div><div>ภายใน 48 ชม. ไม่ส่ง = สัญญาหมดอายุ คืนเงินเต็ม</div>
+      <div>จ่ายผู้ขาย</div><div>ผู้ซื้อยืนยัน หรือ 24 ชม. ไม่มีรายงาน</div><div>กฎหมาย</div><div>พ.ร.บ.การดูแลผลประโยชน์ของคู่สัญญา 2551</div></div>`,
+  held: () => `<h2>เงินอยู่ในบัญชีพักของธนาคาร</h2>
+    <div class="bigline in">ผู้ขาย<em>เห็น</em>ว่าจ่ายแล้ว แต่<em>แตะไม่ได้</em></div>
+    <div class="checks"><div class="chk ok in" style="--d:.3s"><span class="s">✓</span><span>บัญชีพักแยกจากเงินของผู้ขายและของธนาคาร</span></div>
+      <div class="chk ok in" style="--d:.45s"><span class="s">✓</span><span>ผู้ขายไม่ต้องกลัวสลิปปลอม เพราะเห็นเงินพักจริง</span></div>
+      <div class="chk ok in" style="--d:.6s"><span class="s">✓</span><span>เงินออกได้ 3 ทางเท่านั้น ตามกติกาในสัญญา<small>ผู้ซื้อยืนยัน · หมดอายุคืนเงิน · คำสั่งเจ้าหน้าที่หรือศาล</small></span></div></div>`,
+  expired: () => `<h2>48 ชม. ผ่านไป ไม่มีเลขพัสดุ</h2>
+    <div class="clock48 popin">00:00:00</div>
+    <div class="verdict v-ok in" style="--d:.5s">สัญญาหมดอายุ · คืนเงินพลอยเต็มจำนวนอัตโนมัติ<small>ไม่มีพนักงานต้องตัดสิน พลอยไม่ต้องตามเอง</small></div>
+    <div class="foot in" style="--d:.8s">นี่คือทางแยก: ผู้ขายรายนี้เลือกส่งเลขพัสดุปลอมแทน ขั้นถัดไปกลับไปที่เรื่องจริง</div>`,
+  ship: () => `<h2>ธนาคารไม่เชื่อมกับขนส่ง พลอยเทียบเอง<small>สัญญาบอกพลอยว่าต้องเทียบอะไร</small></h2>
+    <div class="cmp2 in"><div></div><div>สัญญาของพลอย</div><div>แอปขนส่ง ${DEAL.track}</div>
+      <div>ผู้รับ</div><div>${BUYER.name}</div><div class="x">ส*** ก. ✗</div>
+      <div>ปลายทาง</div><div>${BUYER.addr}</div><div class="x">เชียงใหม่ 50200 ✗</div>
+      <div>วันที่สร้าง</div><div>หลังดีล 13 ต.ค.</div><div class="x">11 ต.ค. 15:20 ✗</div></div>
+    <div class="verdict v-hold in" style="--d:.5s">เงินยังพักอยู่ระหว่างที่พลอยเช็ก<small>พลอยมี 24 ชม. ยืนยันหรือรายงาน ก่อนเงินจะไปผู้ขาย</small></div>`,
+  dispute: () => disputeFlow(2),
+  evidence: () => disputeFlow(3),
+  insider: () => `<h2>คำขอปล่อยเงินตอน 02:14</h2>
+    <div class="req in"><span class="who2">ops</span><span>พนักงานฝ่ายปฏิบัติการ ขอปล่อย ${thb(DEAL.amount)} จากดีล ${DEAL.id} ให้ผู้ขาย<small>ล็อกอินจากโน้ตบุ๊กที่ไม่เคยเห็น · นอกเวลางาน</small></span></div>
+    <div class="walls">
+      <div class="wall in" style="--d:.3s"><b>Zero-Trust<i>✗</i></b><span>เครื่องไม่ได้ลงทะเบียน ไม่มีกุญแจฮาร์ดแวร์</span></div>
+      <div class="wall in" style="--d:.45s"><b>RBAC<i>✗</i></b><span>ตำแหน่งนี้ดูดีลได้ แต่ปล่อยเงินไม่ได้</span></div>
+      <div class="wall in" style="--d:.6s"><b>Policy<i>✗</i></b><span>ดีลมีใบแจ้งความ: เงินออกได้ด้วยคำสั่งเจ้าหน้าที่หรือศาลเท่านั้น</span></div>
+      <div class="wall in" style="--d:.75s"><b>อนุมัติ 2 คน<i>✗</i></b><span>0/2 · ต้องมาจากฝ่ายความเสี่ยงหรือ Compliance ไม่ใช่ทีมเดียวกัน</span></div></div>
+    <div class="verdict v-bad in" style="--d:1s">ปฏิเสธคำขอ · แจ้งทีมความปลอดภัย</div>`,
+  tamperLog: s => {
+    const t = s.tamper, i = t.seq - 1, a = s.audit;
+    const blk = (e, cls, extra) => `<div class="blk ${cls}"><span class="bn">#${e.seq}</span><span class="ba">${esc(e.action)}</span><span class="bh">hash ${e.hash.slice(0, 10)}…</span>${extra || ""}</div>`;
+    return `<h2>แก้ log ในฐานข้อมูล: chain ขาดทันที<small>SHA-256 คำนวณจริงในหน้านี้</small></h2>
+    <div class="diff in"><span>บรรทัด #${t.seq}</span><span class="mono"><span class="old">${t.before}</span> → <span class="new">BUYER_CONFIRMED</span></span></div>
+    <div class="chain in" style="--d:.3s">${blk(a[i - 1], "")}<span class="lnk">→</span>
+      ${blk(a[i], "bad", `<span class="bh">คำนวณใหม่ <b>${t.recomputed.slice(0, 10)}…</b></span>`)}<span class="lnk bad">✗</span>
+      ${blk(a[i + 1], "", `<span class="bh">ชี้ไปที่ ${t.next.slice(0, 10)}…</span>`)}</div>
+    <div class="verdict v-bad in" style="--d:.7s">ตรวจพบการแก้ไข · ล็อกบัญชีพนักงาน · เปิดการสอบสวน<small>log ที่เหลือยังพิสูจน์ได้ว่าพลอยรายงาน ไม่ได้ยืนยัน</small></div>`;
+  },
+  summary: () => `<h2>กลโกง 6 แบบ · มิจฉาชีพได้ 0 บาท</h2>
+    <div class="tally">${TRICKS.map((x, i) => `<div class="tal in" style="--d:${.1 + i * .12}s"><i>${i + 1}</i><span><b>${x.split(" → ")[0]}</b>${x.split(" → ")[1]}</span></div>`).join("")}</div>
+    <div class="verdict v-ok in" style="--d:.9s">ผู้ขายสุจริต: ได้เงินทันทีที่ผู้ซื้อยืนยัน<small>ไม่ต้องเชื่อคนแปลกหน้า เชื่อแค่กติกาที่ธนาคารถือไว้</small></div>`,
+};
+function disputeFlow(stage) {
+  const c = n => n < stage ? "done" : n === stage ? "now" : "";
+  return `<h2>ข้อพิพาท: ธนาคารไม่ตัดสิน กติกาในสัญญาตัดสิน</h2>
+    <div class="dflow in"><div class="dn ${c(1)}"><b>พลอยรายงาน</b>14 ต.ค. · เงินพักไว้อัตโนมัติ</div><span class="dar">→</span>
+      <div class="dn ${c(2)}"><b>ทั้งสองฝ่ายตกลงกันเอง</b>ภายใน 3 วัน: ยกเลิก · คืนบางส่วน · ส่งใหม่ แล้วกดยืนยันผลในแอป</div><span class="dar">→</span>
+      <div class="dn ${c(3)}"><b>ไม่จบ: ยื่นใบแจ้งความ</b>ภายใน 4 วัน · ใช้ Evidence Pack ที่ดาวน์โหลดได้</div></div>
+    <div class="dsplit in" style="--d:.3s"><div class="dn ${stage >= 3 ? "now" : ""}"><b>มีใบแจ้งความ</b>เงินพักต่อจนมีคำสั่งเจ้าหน้าที่หรือคำพิพากษา</div>
+      <div class="dn"><b>ไม่ยื่น</b>เงินไปผู้ขาย · ผู้ขายสุจริตไม่ถูกแช่เงินไม่รู้จบ</div></div>
+    ${stage >= 3 ? `<div class="pcard in" style="--d:.5s"><span class="tag gold">Evidence Pack · ${DEAL.id}</span>
+      <div class="field" style="margin-top:6px">สัญญา · หลักฐานสแกนหน้าของผู้ขาย · เลขพัสดุ · ภาพหน้าจอของพลอย · log ที่ผูก hash<b>ตรวจได้ว่าไม่ถูกแก้ · ผู้ขายผูกกับใบหน้าและบัญชีจริงแล้ว</b></div></div>`
+      : `<div class="verdict v-hold in" style="--d:.5s">ระหว่างนี้เงินไม่ไปไหน<small>ทั้งสองฝ่ายคุยกันในช่องทางที่ใช้อยู่แล้ว EsKrow+ ไม่มีระบบแชท</small></div>`}`;
+}
+
+// ================= vault, bottom bar, top =================
+function vaultHTML(s, flash) {
+  const fl = k => anim && flash.includes(k) ? " flash" : "";
+  const st = { none: ["", ""], held: ["พักไว้", "hold"], disp: ["ข้อพิพาท · พักไว้", "hold"], rep: ["แจ้งความ · พักจนมีคำสั่ง", "hold"], expired: ["คืนผู้ซื้อแล้ว", "ok"], refunded: ["คืนตามคำสั่งแล้ว", "ok"] }[s.led.status];
+  return `<div class="vault">
+    <div class="vn${fl("ploy")}"><small>บัญชีพลอย</small><b>${thb(s.led.ploy)}</b><span>ผู้ซื้อ</span></div>
+    <div class="varrow ${s.led.esc ? "on" : ""}">→</div>
+    <div class="vn ${s.led.esc ? "held" : ""}${fl("esc")}"><small>บัญชีพักเงิน EsKrow+</small><b>${thb(s.led.esc)}</b><span>แยกจากเงินผู้ขายและธนาคาร</span>${st[0] ? `<span class="pill ${st[1]}">${st[0]}</span>` : ""}</div>
+    <div class="varrow">→</div>
+    <div class="vn"><small>บัญชีผู้ขาย</small><b>${thb(s.led.sel)}</b><span>ได้เงินเมื่อผู้ซื้อยืนยัน</span></div></div>`;
+}
+const STATES = [["CREATED", "สร้างดีล"], ["HELD", "เงินพัก"], ["SHIPPED", "ส่งเลขพัสดุ"], ["RELEASED", "จ่ายผู้ขาย"]];
+const ALT = [["EXPIRED", "หมดอายุ · คืนเงิน"], ["DISPUTED", "ข้อพิพาท"], ["REPORTED", "แจ้งความ · พักต่อ"], ["REFUNDED", "คืนตามคำสั่ง"]];
+function bottomHTML(st) {
+  const order = { CREATED: 1, HELD: 2, SHIPPED: 3, DISPUTED: 3, REPORTED: 3, REFUNDED: 3, EXPIRED: 2 };
+  const reached = order[st] || 0;
+  const main = STATES.map(([k, l], i) => `<span class="stt ${k === st ? "now" : i < reached ? "past" : ""}">${l}</span>`).join('<span class="sar">→</span>');
+  const altPast = { REPORTED: ["DISPUTED"], REFUNDED: ["DISPUTED", "REPORTED"] }[st] || [];
+  const alt = ALT.map(([k, l]) => `<span class="stt alt ${k === st ? "now" : altPast.includes(k) ? "past" : ""}">${l}</span>`).join('<span class="sar">·</span>');
+  return `<em>สถานะดีล</em>${main}<span class="sep"></span><em>ทางแยก</em>${alt}`;
+}
+
+// ================= engine =================
+let cur = -1, anim = false, S = null, queue = Promise.resolve(), renderToken = 0;
+const fresh = () => ({ clock: 0, led: { ploy: BUYER.balance, esc: 0, sel: 0, status: "none" }, audit: [], tamper: null });
+async function build(n) {
+  CRY.deal.status = "awaiting";
+  const s = fresh();
+  for (let i = 0; i <= n; i++) {
+    if (STEPS[i].branch && i !== n) continue;   // the "what if" branch never happened in the main story
+    s.clock = Math.max(s.clock, STEPS[i].t);
+    await STEPS[i].apply(s);
+  }
+  return s;
+}
+function go(n) { queue = queue.then(() => goNow(n)).catch(e => console.error(e)); }
+async function goNow(n) {
+  n = Math.max(0, Math.min(STEPS.length - 1, n));
+  const forward = n === cur + 1;
+  S = await build(n);
+  cur = n; anim = forward;
+  await render();
+}
+async function render() {
+  const st = STEPS[cur], token = ++renderToken, stage = $("stage");
+  stage.classList.remove("anim"); void stage.offsetWidth;
+  if (anim) stage.classList.add("anim");
+  const chip = $("chip");
+  chip.textContent = st.chip || `กลโกงที่ ${st.k}/6`;
+  chip.className = "chip" + (st.branch ? " branch" : st.k >= 1 && st.k <= 6 ? " trick" : "");
+  $("title").textContent = st.title;
+  $("sub").textContent = st.sub;
+  $("clock").textContent = dt(st.t);
+  document.querySelectorAll(".pclock").forEach(x => x.textContent = hm(st.t));
+  $("stops").innerHTML = "<em>กลโกงที่ถูกหยุด</em>" + [1, 2, 3, 4, 5, 6].map(i => `<i class="${i <= st.walls ? "on" : ""}">${i}</i>`).join("");
+  $("sscreen").innerHTML = SP[st.sp](S);
+  $("bscreen").innerHTML = BP[st.bp](S);
+  $("sphone").classList.toggle("dim", !!st.dim);
+  $("bphone").classList.toggle("dim", !!st.dim);
+  $("vault").innerHTML = vaultHTML(S, st.flash || []);
+  $("focus").innerHTML = FC[st.fc](S);
+  $("bottom").innerHTML = bottomHTML(st.st);
+  const ok = await chainOk(S.audit);
+  if (token !== renderToken) return;
+  const lp = $("logpill");
+  lp.className = "logpill" + (ok ? "" : " bad");
+  lp.textContent = ok ? `บันทึก SHA-256 · ${S.audit.length} รายการ ✓` : `✗ ตรวจพบการแก้ log บรรทัด #${S.tamper.seq}`;
+  $("notes").innerHTML = `<b>${esc(st.chip || "กลโกงที่ " + st.k)} · ${esc(st.title)}</b> (ขั้น ${cur + 1}/${STEPS.length}) · ${st.note}`;
+  if (st.bp === "verified" && anim) countdown(token);
+}
+// "things to know" card: the button counts down so the buyer reads the facts first
+function countdown(token) {
+  const btn = $("payBtn"), label = btn.textContent;
+  let n = 5;
+  btn.disabled = true; btn.textContent = `อ่านก่อน (${n})`;
+  const tick = () => {
+    if (token !== renderToken) return;
+    n--;
+    if (n) { btn.textContent = `อ่านก่อน (${n})`; setTimeout(tick, 1000); }
+    else { btn.textContent = label; btn.disabled = false; }
+  };
+  setTimeout(tick, 1700);
+}
+
+// ================= input =================
+const TRICK_START = k => STEPS.findIndex(s => s.k === k);
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  if (k === "ArrowRight" || k === " " || k === "PageDown" || k === "Enter") { e.preventDefault(); go(cur + 1); }
+  else if (k === "ArrowLeft" || k === "PageUp" || k === "Backspace") { e.preventDefault(); go(cur - 1); }
+  else if (/^[0-7]$/.test(k)) { cur = -2; go(TRICK_START(+k)); }
+  else if (k === "r" || k === "R" || k === "Home") { cur = -2; go(0); }
+  else if (k === "End") { cur = -2; go(STEPS.length - 1); }
+  else if (k === "n" || k === "N") { const n = $("notes"); n.style.display = n.style.display === "block" ? "none" : "block"; }
+  else if (k === "h" || k === "H") { const h = $("hint"); h.style.display = h.style.display === "none" ? "" : "none"; }
+  else if (k === "?") { const h = $("help"); h.style.display = h.style.display === "grid" ? "none" : "grid"; }
+  else if (k === "Escape") { $("help").style.display = "none"; }
+  else if (k === "f" || k === "F") { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); }
+});
+$("help").onclick = () => { $("help").style.display = "none"; };
+document.addEventListener("pointerdown", e => {
+  const r = document.createElement("div"); r.className = "rip"; r.style.left = e.clientX + "px"; r.style.top = e.clientY + "px";
+  document.body.appendChild(r); setTimeout(() => r.remove(), 600);
+});
+for (const id of ["sscreen", "bscreen"]) $(id).addEventListener("click", e => {
+  const b = e.target.closest("[data-next]");
+  if (b && !b.disabled) go(cur + 1);
+  else if (e.target.closest("[data-noop]")) {
+    const t = document.createElement("div"); t.className = "toast"; t.textContent = e.target.closest("[data-noop]").dataset.noop || "ในเดโม พลอยเลือกทางที่ปลอดภัย";
+    $(id).appendChild(t); setTimeout(() => t.remove(), 1600);
+  }
+});
+
+// ================= scale to window =================
+function fit() { document.documentElement.style.setProperty("--s", Math.min(innerWidth / 1920, innerHeight / 1080)); }
+addEventListener("resize", fit); fit();
+if (!window.crypto?.subtle) document.body.insertAdjacentHTML("beforeend", `<p style="position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:12px;margin:0;z-index:99">เปิดหน้านี้ใน Chrome หรือ Edge (ต้องใช้ WebCrypto)</p>`);
+else initCrypto().then(() => go(0)).catch(e => { console.error(e); document.body.insertAdjacentHTML("beforeend", `<p style="position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:12px;margin:0;z-index:99">${esc(e.message)}</p>`); });
+</script>
+</body>
+</html>
