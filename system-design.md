@@ -38,9 +38,9 @@ Target users: First Jobbers aged 20–29, the age group that loses most to onlin
 9. **Buyer checks and confirms.** The app notifies the buyer. She checks the shipment details for that ID with the carrier herself (carrier app or website): right address, right recipient. If it looks right, she taps **Confirm** and the money is paid to the seller immediately. If she neither confirms nor reports within **24 h** of receiving the ID, the money is paid to the seller.
 10. **Report (M5 + M6).** A small **Report** button, before payment. The buyer must give a reason and a photo (for example a screenshot of the carrier's tracking page).
    1. The deal moves to DISPUTED and the money stays held.
-   2. The two sides can settle in the app: cancel, partial refund or reship. Agreement ends the dispute.
-   3. If they can't agree, the money stays held for up to about 7 days, and an Evidence Pack (PDF + QR) goes to AOC 1441 / police (U12).
-   4. After that, any state freeze order applies. With no order, the money stays frozen until the parties agree or a court rules (ม.๒๓).
+   2. **Settle (3 days, updated 7 Nov).** The two sides settle it between themselves, through whatever channel they already use. EsKrow+ has no chat. If they agree, both confirm the outcome in the app (cancel, partial refund or reship), and the bank pays out as confirmed.
+   3. **Police report (4 more days).** With no agreement after 3 days, the buyer downloads the Evidence Pack (PDF + QR, records hash-linked so any edit shows, U12) and has 4 days to file a police report and submit it in the app.
+   4. **With a police report**, the money stays held until an authority order or a court ruling. **With no report**, the money is paid to the seller, so an honest seller isn't frozen indefinitely. A buyer who reports falsely risks a false-report charge. This uses the "unless the contract stipulates otherwise" clause of ม.๒๓.
 
    The bank never judges who is right, and no staff member reviews the shipment.
 
@@ -50,7 +50,8 @@ Target users: First Jobbers aged 20–29, the age group that loses most to onlin
 CREATED ─paid─► HELD ─shipment ID sent─► SHIPPED ─confirm / 24 h silence─► RELEASED
                 HELD ─no shipment ID in 48 h─► EXPIRED (refund)
                                                SHIPPED ─report─► DISPUTED ─agreed─► MUTUAL (cancel / partial refund / reship)
-                                                                 DISPUTED ─no agreement─► REPORTED (held, Evidence Pack → freeze order or court)
+                                                                 DISPUTED ─police report within 3 + 4 days─► REPORTED (held until authority order or court)
+                                                                 DISPUTED ─no agreement, no police report─► RELEASED (to seller)
 ```
 
 ## Seller stats and reputation (added 29 Oct)
@@ -108,7 +109,7 @@ Sellers see all their own stats in a seller dashboard and choose which ones to s
   - fake or high-risk sellers
   - payment with no shipment (contract expires, automatic refund)
   - fake shipment claims (caught by the buyer before confirming, then Report)
-- **Out of MVP scope:** product quality, and wrong or damaged items. These go through Report → settle → Evidence Pack, not a bank decision.
+- **Out of MVP scope:** product quality, and wrong or damaged items. These go through Report → the two sides settle → police report with the Evidence Pack, not a bank decision.
 
 ## On hold
 
@@ -125,4 +126,4 @@ Sellers see all their own stats in a seller dashboard and choose which ones to s
 - 48 h shipping and 24 h confirmation windows: confirm they fit carrier pickup times, long weekends, and a buyer who is busy for a day.
 - Confirm with the bank that its core system already freezes accounts flagged through AOC 1441 / CFR, and how quickly.
 - How long a clean period clears an old signal (e.g. 6 or 12 months).
-- Hold period for an unresolved dispute (about 7 days) before the Evidence Pack and freeze-until-court stage.
+- Dispute windows: are 3 days to settle plus 4 days to file a police report long enough, for example over a long weekend?
